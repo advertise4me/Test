@@ -26,7 +26,9 @@ cookie.
   wraps the Meta Marketing (Graph) API. Tools: `get_ad_account`,
   `list_campaigns`, `list_ad_sets`, `list_ads`, `get_insights` (spend,
   impressions, clicks, CTR, CPC, CPM, reach, conversions, ROAS over a date
-  range or preset). It talks to `graph.facebook.com` directly using the
+  range or preset), and `create_campaign` (always created PAUSED unless the
+  chat explicitly confirms ACTIVE - requires the `ads_management`
+  permission). It talks to `graph.facebook.com` directly using the
   access token it was spawned with.
 
 ## Setup
@@ -51,7 +53,8 @@ Optional: `CLAUDE_MODEL` (defaults to `claude-opus-5`), `META_GRAPH_API_VERSION`
 This MVP asks for a **manually pasted long-lived access token** instead of a
 full "Login with Facebook" OAuth flow. Get one from the
 [Graph API Explorer](https://developers.facebook.com/tools/explorer/) (select
-your app, grant `ads_read`, generate a token, then exchange it for a
+your app, grant `ads_read` - and `ads_management` too if you want to create
+campaigns from the chat - generate a token, then exchange it for a
 long-lived token) or from a System User in Business Manager. This is
 documented as a known limitation: a production version of this app would
 implement the OAuth redirect flow instead of asking users to paste a token.

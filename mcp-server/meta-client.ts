@@ -54,6 +54,36 @@ async function graphGet<T>(
   return body as T;
 }
 
+async function graphPost<T>(
+  path: string,
+  accessToken: string,
+  params: Record<string, string | undefined>,
+): Promise<T> {
+  const body = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) body.set(key, value);
+  }
+  body.set("access_token", accessToken);
+
+  const res = await fetch(`${GRAPH_API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+  const responseBody = await res.json().catch(() => null);
+
+  if (!res.ok || responseBody?.error) {
+    const err = responseBody?.error;
+    throw new MetaApiError(
+      err?.message || `Meta Graph API request failed with status ${res.status}`,
+      err?.code,
+      err?.type,
+    );
+  }
+
+  return responseBody as T;
+}
+
 export async function getAdAccount(config: MetaClientConfig) {
   return graphGet<{
     id: string;
@@ -175,4 +205,43 @@ export async function getInsights(config: MetaClientConfig, opts: InsightsOption
       limit: opts.limit ?? 100,
     },
   );
+}
+
+export type CampaignObjective =
+  | "OUTCOME_APP_PROMOTION"
+  | "OUTCOME_AWARENESS"
+  | "OUTCOME_ENGAGEMENT"
+  | "OUTCOME_LEADS"
+  | "OUTCOME_SALES"
+  | "OUTCOME_TRAFFIC";
+
+export type SpecialAdCategory =
+  | "NONE"
+  | "HOUSING"
+  | "EMPLOYMENT"
+  | "CREDIT"
+  | "ISSUES_ELECTIONS_POLITICS"
+  | "ONLINE_GAMBLING_AND_GAMING";
+
+export interface CreateCampaignInput {
+  name: string;
+  objective: CampaignObjective;
+  /** Always defaults to PAUSED - callers must opt in to ACTIVE explicitly. */
+  status?: "ACTIVE" | "PAUSED";
+  specialAdCategories?: SpecialAdCategory[];
+  /** In the ad account's currency minor unit, e.g. cents for USD. */
+  dailyBudget?: number;
+  /** In the ad account's currency minor unit, e.g. cents for USD. */
+  lifetimeBudget?: number;
+}
+
+export async function createCampaign(config: MetaClientConfig, input: CreateCampaignInput) {
+  return graphPost<{ id: string }>(`/${config.adAccountId}/campaigns`, config.accessToken, {
+    name: input.name,
+    objective: input.objective,
+    status: input.status ?? "PAUSED",
+    special_ad_categories: JSON.stringify(input.specialAdCategories ?? []),
+    daily_budget: input.dailyBudget !== undefined ? String(input.dailyBudget) : undefined,
+    lifetime_budget: input.lifetimeBudget !== undefined ? String(input.lifetimeBudget) : undefined,
+  });
 }

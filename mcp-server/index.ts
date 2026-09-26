@@ -11,13 +11,16 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import {
   MetaApiError,
+  createCampaign,
   getAdAccount,
   getInsights,
   listAdSets,
   listAds,
   listCampaigns,
   normalizeAdAccountId,
+  type CampaignObjective,
   type InsightsLevel,
+  type SpecialAdCategory,
 } from "./meta-client.js";
 
 const accessToken = process.env.META_ACCESS_TOKEN;
@@ -181,6 +184,78 @@ server.registerTool(
           since,
           until,
           timeIncrement: time_increment,
+        }),
+      );
+    } catch (error) {
+      return toolError(error);
+    }
+  },
+);
+
+const CAMPAIGN_OBJECTIVES: [CampaignObjective, ...CampaignObjective[]] = [
+  "OUTCOME_APP_PROMOTION",
+  "OUTCOME_AWARENESS",
+  "OUTCOME_ENGAGEMENT",
+  "OUTCOME_LEADS",
+  "OUTCOME_SALES",
+  "OUTCOME_TRAFFIC",
+];
+
+const SPECIAL_AD_CATEGORIES: [SpecialAdCategory, ...SpecialAdCategory[]] = [
+  "NONE",
+  "HOUSING",
+  "EMPLOYMENT",
+  "CREDIT",
+  "ISSUES_ELECTIONS_POLITICS",
+  "ONLINE_GAMBLING_AND_GAMING",
+];
+
+server.registerTool(
+  "create_campaign",
+  {
+    title: "Create a campaign",
+    description:
+      "Create a new campaign in the connected ad account. The campaign is created PAUSED unless status is " +
+      "explicitly set to ACTIVE. Setting status to ACTIVE can start spending real money immediately - only do " +
+      "that after the user has explicitly confirmed the name, objective, and budget in this conversation. " +
+      "Requires the connected access token to have the ads_management permission.",
+    inputSchema: {
+      name: z.string().min(1).describe("Campaign name."),
+      objective: z.enum(CAMPAIGN_OBJECTIVES).describe("Campaign objective."),
+      status: z
+        .enum(["ACTIVE", "PAUSED"])
+        .optional()
+        .describe("Defaults to PAUSED. Only set ACTIVE after explicit user confirmation."),
+      daily_budget: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe(
+          "Daily budget in the ad account's currency minor unit (e.g. cents for USD). Omit if ad sets will set their own budgets.",
+        ),
+      lifetime_budget: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Lifetime budget in the ad account's currency minor unit (e.g. cents for USD)."),
+      special_ad_categories: z
+        .array(z.enum(SPECIAL_AD_CATEGORIES))
+        .optional()
+        .describe("Meta's regulated ad categories that apply, if any. Defaults to none."),
+    },
+  },
+  async ({ name, objective, status, daily_budget, lifetime_budget, special_ad_categories }) => {
+    try {
+      return toolResult(
+        await createCampaign(config, {
+          name,
+          objective,
+          status,
+          dailyBudget: daily_budget,
+          lifetimeBudget: lifetime_budget,
+          specialAdCategories: special_ad_categories,
         }),
       );
     } catch (error) {

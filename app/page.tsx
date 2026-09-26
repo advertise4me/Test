@@ -107,9 +107,10 @@ export default function ConnectPage() {
               className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
             />
             <p className="mt-1 text-xs text-zinc-500">
-              A user or system-user access token with <code>ads_read</code> (and{" "}
-              <code>ads_management</code> if you want write access later) permission on this
-              account. A long-lived token is recommended so it doesn&apos;t expire mid-session.
+              A user or system-user access token with <code>ads_read</code> permission (add{" "}
+              <code>ads_management</code> too if you want to create campaigns from the chat) on
+              this account. A long-lived token is recommended so it doesn&apos;t expire
+              mid-session.
             </p>
           </div>
 
