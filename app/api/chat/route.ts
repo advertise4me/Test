@@ -56,7 +56,14 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
-  const anthropic = new Anthropic({ apiKey });
+  // Some organizations only issue org-wide API keys that aren't tied to a
+  // specific workspace; Anthropic then requires the workspace id on every
+  // request. Only needed if ANTHROPIC_API_KEY is that kind of key.
+  const workspaceId = process.env.ANTHROPIC_WORKSPACE_ID;
+  const anthropic = new Anthropic({
+    apiKey,
+    defaultHeaders: workspaceId ? { "anthropic-workspace-id": workspaceId } : undefined,
+  });
 
   let mcpSession: Awaited<ReturnType<typeof startMetaAdsMcpSession>>;
   try {
