@@ -18,6 +18,10 @@ import {
   listAds,
   listCampaigns,
   normalizeAdAccountId,
+  updateAdSet,
+  updateAdStatus,
+  updateCampaign,
+  type ActiveOrPausedStatus,
   type CampaignObjective,
   type InsightsLevel,
   type SpecialAdCategory,
@@ -258,6 +262,109 @@ server.registerTool(
           specialAdCategories: special_ad_categories,
         }),
       );
+    } catch (error) {
+      return toolError(error);
+    }
+  },
+);
+
+const STATUS_VALUES: [ActiveOrPausedStatus, ...ActiveOrPausedStatus[]] = ["ACTIVE", "PAUSED"];
+
+server.registerTool(
+  "update_campaign",
+  {
+    title: "Pause, resume, or change the budget of an existing campaign",
+    description:
+      "Edits an existing campaign's status and/or budget. Never creates a new campaign. Pausing is low-risk " +
+      "and reversible; setting status to ACTIVE or changing a budget can change what the account spends, so " +
+      "confirm the exact change (old value -> new value) with the user in this conversation before calling this.",
+    inputSchema: {
+      campaign_id: z.string().min(1).describe("The campaign to edit."),
+      status: z.enum(STATUS_VALUES).optional().describe("Pause or resume the campaign."),
+      daily_budget: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("New daily budget in the ad account's currency minor unit (e.g. cents for USD)."),
+      lifetime_budget: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("New lifetime budget in the ad account's currency minor unit (e.g. cents for USD)."),
+    },
+  },
+  async ({ campaign_id, status, daily_budget, lifetime_budget }) => {
+    try {
+      return toolResult(
+        await updateCampaign(config, campaign_id, {
+          status,
+          dailyBudget: daily_budget,
+          lifetimeBudget: lifetime_budget,
+        }),
+      );
+    } catch (error) {
+      return toolError(error);
+    }
+  },
+);
+
+server.registerTool(
+  "update_ad_set",
+  {
+    title: "Pause, resume, or change the budget of an existing ad set",
+    description:
+      "Edits an existing ad set's status and/or budget. Never creates a new ad set. Pausing is low-risk and " +
+      "reversible; setting status to ACTIVE or changing a budget can change what the account spends, so confirm " +
+      "the exact change (old value -> new value) with the user in this conversation before calling this.",
+    inputSchema: {
+      ad_set_id: z.string().min(1).describe("The ad set to edit."),
+      status: z.enum(STATUS_VALUES).optional().describe("Pause or resume the ad set."),
+      daily_budget: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("New daily budget in the ad account's currency minor unit (e.g. cents for USD)."),
+      lifetime_budget: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("New lifetime budget in the ad account's currency minor unit (e.g. cents for USD)."),
+    },
+  },
+  async ({ ad_set_id, status, daily_budget, lifetime_budget }) => {
+    try {
+      return toolResult(
+        await updateAdSet(config, ad_set_id, {
+          status,
+          dailyBudget: daily_budget,
+          lifetimeBudget: lifetime_budget,
+        }),
+      );
+    } catch (error) {
+      return toolError(error);
+    }
+  },
+);
+
+server.registerTool(
+  "update_ad_status",
+  {
+    title: "Pause or resume an existing ad",
+    description:
+      "Pauses or resumes a single existing ad. Never creates a new ad. Low-risk and reversible, but still " +
+      "confirm which ad and the new status with the user in this conversation before calling this.",
+    inputSchema: {
+      ad_id: z.string().min(1).describe("The ad to pause or resume."),
+      status: z.enum(STATUS_VALUES).describe("New status for the ad."),
+    },
+  },
+  async ({ ad_id, status }) => {
+    try {
+      return toolResult(await updateAdStatus(config, ad_id, status));
     } catch (error) {
       return toolError(error);
     }

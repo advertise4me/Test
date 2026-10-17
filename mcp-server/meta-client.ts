@@ -245,3 +245,56 @@ export async function createCampaign(config: MetaClientConfig, input: CreateCamp
     lifetime_budget: input.lifetimeBudget !== undefined ? String(input.lifetimeBudget) : undefined,
   });
 }
+
+export type ActiveOrPausedStatus = "ACTIVE" | "PAUSED";
+
+export interface UpdateCampaignInput {
+  status?: ActiveOrPausedStatus;
+  /** In the ad account's currency minor unit, e.g. cents for USD. */
+  dailyBudget?: number;
+  /** In the ad account's currency minor unit, e.g. cents for USD. */
+  lifetimeBudget?: number;
+}
+
+/** Edits an existing campaign - status and/or budget. Never creates anything new. */
+export async function updateCampaign(
+  config: MetaClientConfig,
+  campaignId: string,
+  input: UpdateCampaignInput,
+) {
+  return graphPost<{ success: boolean }>(`/${campaignId}`, config.accessToken, {
+    status: input.status,
+    daily_budget: input.dailyBudget !== undefined ? String(input.dailyBudget) : undefined,
+    lifetime_budget: input.lifetimeBudget !== undefined ? String(input.lifetimeBudget) : undefined,
+  });
+}
+
+export interface UpdateAdSetInput {
+  status?: ActiveOrPausedStatus;
+  /** In the ad account's currency minor unit, e.g. cents for USD. */
+  dailyBudget?: number;
+  /** In the ad account's currency minor unit, e.g. cents for USD. */
+  lifetimeBudget?: number;
+}
+
+/** Edits an existing ad set - status and/or budget. Never creates anything new. */
+export async function updateAdSet(
+  config: MetaClientConfig,
+  adSetId: string,
+  input: UpdateAdSetInput,
+) {
+  return graphPost<{ success: boolean }>(`/${adSetId}`, config.accessToken, {
+    status: input.status,
+    daily_budget: input.dailyBudget !== undefined ? String(input.dailyBudget) : undefined,
+    lifetime_budget: input.lifetimeBudget !== undefined ? String(input.lifetimeBudget) : undefined,
+  });
+}
+
+/** Pauses or resumes an existing ad. Never creates anything new. */
+export async function updateAdStatus(
+  config: MetaClientConfig,
+  adId: string,
+  status: ActiveOrPausedStatus,
+) {
+  return graphPost<{ success: boolean }>(`/${adId}`, config.accessToken, { status });
+}
