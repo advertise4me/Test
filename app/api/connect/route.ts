@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { encryptToken } from "@/lib/crypto";
-import { MetaApiError, getAdAccount, normalizeAdAccountId } from "@/mcp-server/meta-client";
+import { MetaApiError, getAdAccount, listPages, normalizeAdAccountId } from "@/mcp-server/meta-client";
 
 export async function POST(req: NextRequest) {
   const userId = await getCurrentUserId();
@@ -34,6 +34,19 @@ export async function POST(req: NextRequest) {
       adAccountId: normalizedAccountId,
     });
 
+    // Best-effort: a Facebook Page is required to create ad creatives, but a
+    // missing pages_show_list permission (or no linked page yet) shouldn't
+    // block connecting the ad account itself.
+    let pages: Array<{ id: string; name: string }> = [];
+    try {
+      const pagesResult = await listPages({ accessToken: trimmedToken });
+      pages = pagesResult.data;
+    } catch {
+      pages = [];
+    }
+
+    const autoPage = pages.length === 1 ? pages[0] : null;
+
     await prisma.metaConnection.upsert({
       where: { userId },
       create: {
@@ -42,16 +55,27 @@ export async function POST(req: NextRequest) {
         accountName: account.name,
         currency: account.currency,
         accessTokenCiphertext: encryptToken(trimmedToken),
+        facebookPageId: autoPage?.id,
+        facebookPageName: autoPage?.name,
       },
       update: {
         adAccountId: normalizedAccountId,
         accountName: account.name,
         currency: account.currency,
         accessTokenCiphertext: encryptToken(trimmedToken),
+        facebookPageId: autoPage?.id,
+        facebookPageName: autoPage?.name,
       },
     });
 
-    return NextResponse.json({ ok: true, accountName: account.name, currency: account.currency });
+    return NextResponse.json({
+      ok: true,
+      accountName: account.name,
+      currency: account.currency,
+      page: autoPage,
+      // If there's more than one candidate Page, let the client ask the user to pick.
+      pageChoices: pages.length > 1 ? pages : undefined,
+    });
   } catch (error) {
     const message =
       error instanceof MetaApiError

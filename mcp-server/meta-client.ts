@@ -84,6 +84,47 @@ async function graphPost<T>(
   return responseBody as T;
 }
 
+async function graphPostMultipart<T>(
+  path: string,
+  accessToken: string,
+  fields: Record<string, string | undefined>,
+  file: { fieldName: string; filename: string; mimeType: string; data: Buffer },
+): Promise<T> {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined) form.set(key, value);
+  }
+  form.set("access_token", accessToken);
+  form.set(file.fieldName, new Blob([new Uint8Array(file.data)], { type: file.mimeType }), file.filename);
+
+  const res = await fetch(`${GRAPH_API_BASE}${path}`, { method: "POST", body: form });
+  const responseBody = await res.json().catch(() => null);
+
+  if (!res.ok || responseBody?.error) {
+    const err = responseBody?.error;
+    throw new MetaApiError(
+      err?.message || `Meta Graph API request failed with status ${res.status}`,
+      err?.code,
+      err?.type,
+    );
+  }
+
+  return responseBody as T;
+}
+
+export interface MetaPage {
+  id: string;
+  name: string;
+}
+
+/** Pages the connected token can post ads as. Requires pages_show_list permission. */
+export async function listPages(config: Pick<MetaClientConfig, "accessToken">) {
+  return graphGet<GraphListResult<MetaPage>>("/me/accounts", config.accessToken, {
+    fields: "id,name",
+    limit: 50,
+  });
+}
+
 export async function getAdAccount(config: MetaClientConfig) {
   return graphGet<{
     id: string;
@@ -297,4 +338,185 @@ export async function updateAdStatus(
   status: ActiveOrPausedStatus,
 ) {
   return graphPost<{ success: boolean }>(`/${adId}`, config.accessToken, { status });
+}
+
+// --- Targeting ------------------------------------------------------------
+// Deliberately simple: country/radius geo-targeting + age + gender. Interest
+// and behavior targeting need Meta's separate targeting-search API to
+// resolve names to ids and aren't supported yet.
+
+export interface SimpleTargeting {
+  /** ISO 3166-1 alpha-2 country codes, e.g. ["US"]. */
+  countries?: string[];
+  /** Radius-based locations - no name lookup needed, just coordinates. */
+  customLocations?: Array<{
+    latitude: number;
+    longitude: number;
+    radius: number;
+    distanceUnit?: "mile" | "kilometer";
+  }>;
+  ageMin?: number;
+  ageMax?: number;
+  /** 1 = male, 2 = female. Omit (or both) for all genders. */
+  genders?: Array<1 | 2>;
+}
+
+function buildTargetingSpec(targeting: SimpleTargeting): Record<string, unknown> {
+  const geoLocations: Record<string, unknown> = {};
+  if (targeting.countries?.length) geoLocations.countries = targeting.countries;
+  if (targeting.customLocations?.length) {
+    geoLocations.custom_locations = targeting.customLocations.map((loc) => ({
+      latitude: loc.latitude,
+      longitude: loc.longitude,
+      radius: loc.radius,
+      distance_unit: loc.distanceUnit ?? "mile",
+    }));
+  }
+
+  const spec: Record<string, unknown> = {};
+  if (Object.keys(geoLocations).length > 0) spec.geo_locations = geoLocations;
+  if (targeting.ageMin !== undefined) spec.age_min = targeting.ageMin;
+  if (targeting.ageMax !== undefined) spec.age_max = targeting.ageMax;
+  if (targeting.genders?.length) spec.genders = targeting.genders;
+  // publisher_platforms / positions deliberately omitted - Meta defaults to
+  // automatic placements across Facebook and Instagram, which is what we want.
+  return spec;
+}
+
+// --- Ad sets ----------------------------------------------------------------
+
+export type OptimizationGoal =
+  | "LINK_CLICKS"
+  | "LANDING_PAGE_VIEWS"
+  | "IMPRESSIONS"
+  | "REACH"
+  | "LEAD_GENERATION"
+  | "CONVERSATIONS"
+  | "OFFSITE_CONVERSIONS"
+  | "THRUPLAY";
+
+export interface CreateAdSetInput {
+  campaignId: string;
+  name: string;
+  optimizationGoal: OptimizationGoal;
+  billingEvent?: "IMPRESSIONS" | "LINK_CLICKS";
+  targeting: SimpleTargeting;
+  /** Always defaults to PAUSED - callers must opt in to ACTIVE explicitly. */
+  status?: ActiveOrPausedStatus;
+  /** Only set if the campaign itself has no budget (i.e. not using campaign budget optimization). */
+  dailyBudget?: number;
+  lifetimeBudget?: number;
+  /** ISO 8601. Required by Meta when lifetimeBudget is set. */
+  endTime?: string;
+}
+
+export async function createAdSet(config: MetaClientConfig, input: CreateAdSetInput) {
+  return graphPost<{ id: string }>(`/${config.adAccountId}/adsets`, config.accessToken, {
+    name: input.name,
+    campaign_id: input.campaignId,
+    optimization_goal: input.optimizationGoal,
+    billing_event: input.billingEvent ?? "IMPRESSIONS",
+    targeting: JSON.stringify(buildTargetingSpec(input.targeting)),
+    status: input.status ?? "PAUSED",
+    daily_budget: input.dailyBudget !== undefined ? String(input.dailyBudget) : undefined,
+    lifetime_budget: input.lifetimeBudget !== undefined ? String(input.lifetimeBudget) : undefined,
+    end_time: input.endTime,
+  });
+}
+
+// --- Image/video uploads, creatives, and ads ---------------------------------
+
+export interface UploadedFile {
+  filename: string;
+  mimeType: string;
+  data: Buffer;
+}
+
+export async function uploadAdImage(config: MetaClientConfig, file: UploadedFile) {
+  const response = await graphPostMultipart<{
+    images: Record<string, { hash: string; url?: string }>;
+  }>(
+    `/${config.adAccountId}/adimages`,
+    config.accessToken,
+    {},
+    { fieldName: "source", filename: file.filename, mimeType: file.mimeType, data: file.data },
+  );
+  const entry = Object.values(response.images)[0];
+  if (!entry) throw new MetaApiError("Meta did not return an image hash for the upload.");
+  return { hash: entry.hash, url: entry.url };
+}
+
+export async function uploadAdVideo(config: MetaClientConfig, file: UploadedFile) {
+  const response = await graphPostMultipart<{ id: string }>(
+    `/${config.adAccountId}/advideos`,
+    config.accessToken,
+    {},
+    { fieldName: "source", filename: file.filename, mimeType: file.mimeType, data: file.data },
+  );
+  return { videoId: response.id };
+}
+
+export interface CreateAdCreativeInput {
+  pageId: string;
+  /** Where the ad's button/click sends people - a product or booking page URL. */
+  link: string;
+  /** Primary text. */
+  message: string;
+  /** Headline. */
+  headline?: string;
+  /** e.g. LEARN_MORE, SHOP_NOW, BOOK_TRAVEL, CONTACT_US, SIGN_UP, CALL_NOW. */
+  callToAction?: string;
+  /** Use for an image ad - the hash returned by uploadAdImage. */
+  imageHash?: string;
+  /** Use for a video ad - the id returned by uploadAdVideo. */
+  videoId?: string;
+  /** A still-frame thumbnail for a video ad (image hash from uploadAdImage). */
+  videoThumbnailImageHash?: string;
+}
+
+export async function createAdCreative(config: MetaClientConfig, input: CreateAdCreativeInput) {
+  const callToAction = input.callToAction
+    ? { type: input.callToAction, value: { link: input.link } }
+    : undefined;
+
+  const objectStorySpec: Record<string, unknown> = { page_id: input.pageId };
+
+  if (input.videoId) {
+    objectStorySpec.video_data = {
+      video_id: input.videoId,
+      title: input.headline,
+      message: input.message,
+      call_to_action: callToAction,
+      image_hash: input.videoThumbnailImageHash,
+    };
+  } else {
+    objectStorySpec.link_data = {
+      link: input.link,
+      message: input.message,
+      name: input.headline,
+      call_to_action: callToAction,
+      image_hash: input.imageHash,
+    };
+  }
+
+  return graphPost<{ id: string }>(`/${config.adAccountId}/adcreatives`, config.accessToken, {
+    object_story_spec: JSON.stringify(objectStorySpec),
+  });
+}
+
+export interface CreateAdInput {
+  adSetId: string;
+  name: string;
+  creativeId: string;
+  /** Always defaults to PAUSED - callers must opt in to ACTIVE explicitly. */
+  status?: ActiveOrPausedStatus;
+}
+
+export async function createAd(config: MetaClientConfig, input: CreateAdInput) {
+  return graphPost<{ id: string }>(`/${config.adAccountId}/ads`, config.accessToken, {
+    name: input.name,
+    adset_id: input.adSetId,
+    creative: JSON.stringify({ creative_id: input.creativeId }),
+    status: input.status ?? "PAUSED",
+  });
 }

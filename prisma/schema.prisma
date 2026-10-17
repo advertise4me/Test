@@ -26,6 +26,12 @@ model MetaConnection {
   accountName           String?
   currency              String?
   accessTokenCiphertext String
+  // The Facebook Page ads are posted as - required to create ad creatives.
+  // Auto-detected from the token's linked pages at connect time; null if
+  // the token has no linked page yet, or (when more than one was found)
+  // until the user picks one.
+  facebookPageId        String?
+  facebookPageName      String?
   connectedAt           DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }

@@ -25,6 +25,8 @@ export interface MetaAdsMcpSession {
 export async function startMetaAdsMcpSession(config: {
   accessToken: string;
   adAccountId: string;
+  /** The connected Facebook Page's id, if one has been linked. Needed for create_ad_creative. */
+  pageId?: string | null;
 }): Promise<MetaAdsMcpSession> {
   const transport = new StdioClientTransport({
     command: process.execPath, // the current Node.js binary
@@ -33,6 +35,7 @@ export async function startMetaAdsMcpSession(config: {
       ...processEnvWhitelist(),
       META_ACCESS_TOKEN: config.accessToken,
       META_AD_ACCOUNT_ID: config.adAccountId,
+      ...(config.pageId ? { META_PAGE_ID: config.pageId } : {}),
     },
     stderr: "pipe",
   });

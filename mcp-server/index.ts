@@ -11,6 +11,9 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import {
   MetaApiError,
+  createAd,
+  createAdCreative,
+  createAdSet,
   createCampaign,
   getAdAccount,
   getInsights,
@@ -24,11 +27,15 @@ import {
   type ActiveOrPausedStatus,
   type CampaignObjective,
   type InsightsLevel,
+  type OptimizationGoal,
   type SpecialAdCategory,
 } from "./meta-client.js";
 
 const accessToken = process.env.META_ACCESS_TOKEN;
 const rawAdAccountId = process.env.META_AD_ACCOUNT_ID;
+// Optional - only needed by create_ad_creative. Not every connection has a
+// linked Page yet, so this doesn't block startup like the two above do.
+const pageId = process.env.META_PAGE_ID;
 
 if (!accessToken || !rawAdAccountId) {
   console.error(
@@ -365,6 +372,216 @@ server.registerTool(
   async ({ ad_id, status }) => {
     try {
       return toolResult(await updateAdStatus(config, ad_id, status));
+    } catch (error) {
+      return toolError(error);
+    }
+  },
+);
+
+const OPTIMIZATION_GOALS: [OptimizationGoal, ...OptimizationGoal[]] = [
+  "LINK_CLICKS",
+  "LANDING_PAGE_VIEWS",
+  "IMPRESSIONS",
+  "REACH",
+  "LEAD_GENERATION",
+  "CONVERSATIONS",
+  "OFFSITE_CONVERSIONS",
+  "THRUPLAY",
+];
+
+const CALL_TO_ACTIONS = [
+  "LEARN_MORE",
+  "SHOP_NOW",
+  "SIGN_UP",
+  "BOOK_TRAVEL",
+  "CONTACT_US",
+  "CALL_NOW",
+  "GET_QUOTE",
+  "SUBSCRIBE",
+  "DOWNLOAD",
+  "WATCH_MORE",
+  "SEND_MESSAGE",
+  "GET_DIRECTIONS",
+] as const;
+
+server.registerTool(
+  "create_ad_set",
+  {
+    title: "Create an ad set (targeting + budget) under a campaign",
+    description:
+      "Creates a new ad set inside an existing campaign - this is where targeting (location, age, gender) and " +
+      "(usually) the budget live. Always created PAUSED unless status is explicitly ACTIVE. Only set a budget " +
+      "here if the campaign itself was created without one; Meta rejects a budget set on both. Placements are " +
+      "deliberately left automatic (Facebook + Instagram) - do not try to restrict them unless asked. Interest " +
+      "or behavior targeting (e.g. 'people interested in cooking') is not supported yet - only location, age, " +
+      "and gender.",
+    inputSchema: {
+      campaign_id: z.string().min(1).describe("The campaign this ad set belongs to."),
+      name: z.string().min(1).describe("Ad set name."),
+      optimization_goal: z
+        .enum(OPTIMIZATION_GOALS)
+        .describe(
+          "What Meta optimizes delivery for, e.g. LINK_CLICKS for traffic, OFFSITE_CONVERSIONS for sales, " +
+            "LEAD_GENERATION for leads.",
+        ),
+      billing_event: z
+        .enum(["IMPRESSIONS", "LINK_CLICKS"])
+        .optional()
+        .describe("Defaults to IMPRESSIONS."),
+      countries: z
+        .array(z.string().length(2))
+        .optional()
+        .describe("ISO country codes to target, e.g. ['US']."),
+      custom_locations: z
+        .array(
+          z.object({
+            latitude: z.number(),
+            longitude: z.number(),
+            radius: z.number().positive(),
+            distance_unit: z.enum(["mile", "kilometer"]).optional(),
+          }),
+        )
+        .optional()
+        .describe("Radius-based locations, e.g. a city center + radius in miles."),
+      age_min: z.number().int().min(13).max(65).optional(),
+      age_max: z.number().int().min(13).max(65).optional(),
+      genders: z
+        .array(z.union([z.literal(1), z.literal(2)]))
+        .optional()
+        .describe("1 = male, 2 = female. Omit for all genders."),
+      status: z.enum(["ACTIVE", "PAUSED"]).optional().describe("Defaults to PAUSED."),
+      daily_budget: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Only if the campaign has no budget of its own. Minor currency unit (cents for USD)."),
+      lifetime_budget: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Only if the campaign has no budget of its own. Minor currency unit (cents for USD)."),
+      end_time: z
+        .string()
+        .optional()
+        .describe("ISO 8601 end date/time. Required by Meta when lifetime_budget is set."),
+    },
+  },
+  async ({
+    campaign_id,
+    name,
+    optimization_goal,
+    billing_event,
+    countries,
+    custom_locations,
+    age_min,
+    age_max,
+    genders,
+    status,
+    daily_budget,
+    lifetime_budget,
+    end_time,
+  }) => {
+    try {
+      return toolResult(
+        await createAdSet(config, {
+          campaignId: campaign_id,
+          name,
+          optimizationGoal: optimization_goal,
+          billingEvent: billing_event,
+          targeting: {
+            countries,
+            customLocations: custom_locations,
+            ageMin: age_min,
+            ageMax: age_max,
+            genders,
+          },
+          status,
+          dailyBudget: daily_budget,
+          lifetimeBudget: lifetime_budget,
+          endTime: end_time,
+        }),
+      );
+    } catch (error) {
+      return toolError(error);
+    }
+  },
+);
+
+server.registerTool(
+  "create_ad_creative",
+  {
+    title: "Create an ad creative from an uploaded image or video",
+    description:
+      "Creates the creative (image/video + copy + button) that an ad shows. Use the image_hash or video_id the " +
+      "user got back when they uploaded a file in this conversation - never invent one. Provide exactly one of " +
+      "image_hash or video_id, not both. Posts as the ad account's connected Facebook Page automatically.",
+    inputSchema: {
+      link: z
+        .string()
+        .url()
+        .describe("Where the ad's button sends people - a product or booking page URL from the business's site."),
+      message: z.string().min(1).describe("Primary text of the ad."),
+      headline: z.string().optional().describe("Short headline."),
+      call_to_action: z.enum(CALL_TO_ACTIONS).optional(),
+      image_hash: z.string().optional().describe("From a prior image upload in this conversation."),
+      video_id: z.string().optional().describe("From a prior video upload in this conversation."),
+      video_thumbnail_image_hash: z
+        .string()
+        .optional()
+        .describe("For a video ad: an uploaded image hash to use as the thumbnail."),
+    },
+  },
+  async ({ link, message, headline, call_to_action, image_hash, video_id, video_thumbnail_image_hash }) => {
+    if (!pageId) {
+      return toolError(
+        "No Facebook Page is linked to this account yet, so an ad creative can't be posted. " +
+          "The user needs to link a Page on the connect page first.",
+      );
+    }
+    if (image_hash && video_id) {
+      return toolError("Provide only one of image_hash or video_id, not both.");
+    }
+    if (!image_hash && !video_id) {
+      return toolError("Provide image_hash or video_id - ask the user to upload a file first if neither exists.");
+    }
+    try {
+      return toolResult(
+        await createAdCreative(config, {
+          pageId,
+          link,
+          message,
+          headline,
+          callToAction: call_to_action,
+          imageHash: image_hash,
+          videoId: video_id,
+          videoThumbnailImageHash: video_thumbnail_image_hash,
+        }),
+      );
+    } catch (error) {
+      return toolError(error);
+    }
+  },
+);
+
+server.registerTool(
+  "create_ad",
+  {
+    title: "Create an ad from an ad set and a creative",
+    description:
+      "Creates a new ad, pairing an ad set with a creative made by create_ad_creative. Always created PAUSED " +
+      "unless status is explicitly ACTIVE.",
+    inputSchema: {
+      ad_set_id: z.string().min(1).describe("The ad set this ad belongs to."),
+      name: z.string().min(1).describe("Ad name."),
+      creative_id: z.string().min(1).describe("The id returned by create_ad_creative."),
+      status: z.enum(["ACTIVE", "PAUSED"]).optional().describe("Defaults to PAUSED."),
+    },
+  },
+  async ({ ad_set_id, name, creative_id, status }) => {
+    try {
+      return toolResult(await createAd(config, { adSetId: ad_set_id, name, creativeId: creative_id, status }));
     } catch (error) {
       return toolError(error);
     }

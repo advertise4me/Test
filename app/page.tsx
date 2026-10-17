@@ -9,6 +9,13 @@ interface SessionStatus {
   adAccountId?: string;
   accountName?: string;
   currency?: string;
+  facebookPageId?: string | null;
+  facebookPageName?: string | null;
+}
+
+interface PageChoice {
+  id: string;
+  name: string;
 }
 
 export default function ConnectPage() {
@@ -19,6 +26,8 @@ export default function ConnectPage() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<SessionStatus | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(true);
+  const [pageChoices, setPageChoices] = useState<PageChoice[] | null>(null);
+  const [savingPage, setSavingPage] = useState(false);
 
   useEffect(() => {
     fetch("/api/session")
@@ -38,6 +47,7 @@ export default function ConnectPage() {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    setPageChoices(null);
     try {
       const res = await fetch("/api/connect", {
         method: "POST",
@@ -49,11 +59,37 @@ export default function ConnectPage() {
         setError(data.error || "Could not connect this ad account.");
         return;
       }
+      if (Array.isArray(data.pageChoices) && data.pageChoices.length > 1) {
+        // More than one linked Page - ask which one to post ads as before moving on.
+        setPageChoices(data.pageChoices);
+        setStatus((prev) => ({
+          loggedIn: true,
+          connected: true,
+          accountName: data.accountName,
+          currency: data.currency,
+          ...prev,
+        }));
+        return;
+      }
       router.push("/chat");
     } catch {
       setError("Network error - please try again.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleChoosePage(page: PageChoice) {
+    setSavingPage(true);
+    try {
+      await fetch("/api/connect/page", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId: page.id, pageName: page.name }),
+      });
+      router.push("/chat");
+    } finally {
+      setSavingPage(false);
     }
   }
 
@@ -87,12 +123,43 @@ export default function ConnectPage() {
           </button>
         </div>
 
-        {status?.connected && (
+        {pageChoices && (
+          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+            <p className="font-medium">Which Facebook Page should ads be posted as?</p>
+            <p className="mt-1 text-xs text-blue-800">
+              Your token manages more than one Page - pick the one tied to this ad account.
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              {pageChoices.map((page) => (
+                <button
+                  key={page.id}
+                  onClick={() => handleChoosePage(page)}
+                  disabled={savingPage}
+                  className="rounded-md border border-blue-300 bg-white px-3 py-2 text-left text-sm hover:bg-blue-100 disabled:opacity-50"
+                >
+                  {page.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!pageChoices && status?.connected && (
           <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
             <p className="font-medium">
               Connected to {status.accountName ?? status.adAccountId}
               {status.currency ? ` (${status.currency})` : ""}
             </p>
+            {status.facebookPageName ? (
+              <p className="mt-1 text-xs text-emerald-800">
+                Posting ads as Page: {status.facebookPageName}
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-amber-700">
+                No Facebook Page linked yet - ad creatives can&apos;t be created until one is. Make
+                sure your token has the <code>pages_show_list</code> permission and reconnect.
+              </p>
+            )}
             <div className="mt-3 flex gap-2">
               <button
                 onClick={() => router.push("/chat")}
@@ -129,10 +196,10 @@ export default function ConnectPage() {
               className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
             />
             <p className="mt-1 text-xs text-zinc-500">
-              A user or system-user access token with <code>ads_read</code> permission (add{" "}
-              <code>ads_management</code> too if you want to create campaigns from the chat) on
-              this account. A long-lived token is recommended so it doesn&apos;t expire
-              mid-session.
+              A user or system-user access token with <code>ads_read</code>,{" "}
+              <code>ads_management</code> (to create or edit campaigns), and{" "}
+              <code>pages_show_list</code> (to post ads as your Page) permissions on this
+              account. A long-lived token is recommended so it doesn&apos;t expire mid-session.
             </p>
           </div>
 
@@ -181,6 +248,10 @@ export default function ConnectPage() {
                 Graph API Explorer
               </a>{" "}
               or your app&apos;s System User settings.
+            </li>
+            <li>
+              The Facebook Page used to post ads is detected automatically from your token - if it
+              manages more than one, you&apos;ll be asked which to use.
             </li>
             <li>Disconnect removes the Meta connection; Log out ends your session.</li>
           </ul>

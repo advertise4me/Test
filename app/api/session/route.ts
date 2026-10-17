@@ -19,5 +19,7 @@ export async function GET() {
     adAccountId: connection.adAccountId,
     accountName: connection.accountName,
     currency: connection.currency,
+    facebookPageId: connection.facebookPageId,
+    facebookPageName: connection.facebookPageName,
   });
 }

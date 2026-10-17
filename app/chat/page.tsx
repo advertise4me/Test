@@ -21,8 +21,10 @@ export default function ChatPage() {
   const [history, setHistory] = useState<ChatTurn[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/session")
@@ -36,7 +38,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [history, sending]);
+  }, [history, sending, uploading]);
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -69,6 +71,38 @@ export default function ChatPage() {
     }
   }
 
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file) return;
+
+    setUploading(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/media/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Could not upload this file.");
+        return;
+      }
+      const kindLabel = data.kind === "video" ? "video" : "image";
+      const refLabel = data.kind === "video" ? "video_id" : "image_hash";
+      setHistory((prev) => [
+        ...prev,
+        {
+          role: "user",
+          content: `Uploaded a ${kindLabel} file "${data.filename}". Meta ${refLabel} reference: ${data.ref}`,
+        },
+      ]);
+    } catch {
+      setError("Network error - please try again.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function handleDisconnect() {
     await fetch("/api/disconnect", { method: "POST" });
     router.replace("/");
@@ -98,7 +132,8 @@ export default function ChatPage() {
         {history.length === 0 && (
           <div className="rounded-lg border border-dashed border-zinc-300 p-6 text-sm text-zinc-500">
             Ask things like &ldquo;How did spend and ROAS trend over the last 30 days?&rdquo; or
-            &ldquo;Which campaigns are paused right now?&rdquo;
+            &ldquo;Build me a new ad for my spring sale&rdquo; - attach an image or video with the
+            paperclip button when asked.
           </div>
         )}
         {history.map((turn, i) => (
@@ -115,6 +150,13 @@ export default function ChatPage() {
             </div>
           </div>
         ))}
+        {uploading && (
+          <div className="flex justify-end">
+            <div className="max-w-[85%] rounded-2xl bg-zinc-700 px-4 py-2 text-sm text-white">
+              Uploading…
+            </div>
+          </div>
+        )}
         {sending && (
           <div className="flex justify-start">
             <div className="max-w-[85%] rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-500">
@@ -128,6 +170,22 @@ export default function ChatPage() {
       {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
 
       <form onSubmit={sendMessage} className="flex gap-2 border-t border-zinc-200 pt-4">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*"
+          onChange={handleFileSelected}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading || sending}
+          title="Attach an image or video"
+          className="shrink-0 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 disabled:opacity-50"
+        >
+          📎
+        </button>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
