@@ -1,15 +1,23 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getCurrentUserId } from "@/lib/session";
+import { prisma } from "@/lib/db";
 
 export async function GET() {
-  const session = await getSession();
-  if (!session.metaAccessToken || !session.adAccountId) {
-    return NextResponse.json({ connected: false });
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    return NextResponse.json({ loggedIn: false, connected: false });
   }
+
+  const connection = await prisma.metaConnection.findUnique({ where: { userId } });
+  if (!connection) {
+    return NextResponse.json({ loggedIn: true, connected: false });
+  }
+
   return NextResponse.json({
+    loggedIn: true,
     connected: true,
-    adAccountId: session.adAccountId,
-    accountName: session.accountName,
-    currency: session.currency,
+    adAccountId: connection.adAccountId,
+    accountName: connection.accountName,
+    currency: connection.currency,
   });
 }

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { getSession } from "@/lib/session";
+import { getCurrentUserId } from "@/lib/session";
+import { prisma } from "@/lib/db";
+import { decryptToken } from "@/lib/crypto";
 import { startMetaAdsMcpSession } from "@/lib/mcp-client";
 
 // See the claude-api skill for current model IDs - claude-opus-5 is the
@@ -35,13 +37,19 @@ function isChatTurn(value: unknown): value is ChatTurn {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getSession();
-  if (!session.metaAccessToken || !session.adAccountId) {
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "Log in first." }, { status: 401 });
+  }
+
+  const connection = await prisma.metaConnection.findUnique({ where: { userId } });
+  if (!connection) {
     return NextResponse.json(
       { error: "No Meta ad account is connected. Connect one first." },
       { status: 401 },
     );
   }
+  const metaAccessToken = decryptToken(connection.accessTokenCiphertext);
 
   let body: unknown;
   try {
@@ -75,8 +83,8 @@ export async function POST(req: NextRequest) {
   let mcpSession: Awaited<ReturnType<typeof startMetaAdsMcpSession>>;
   try {
     mcpSession = await startMetaAdsMcpSession({
-      accessToken: session.metaAccessToken,
-      adAccountId: session.adAccountId,
+      accessToken: metaAccessToken,
+      adAccountId: connection.adAccountId,
     });
   } catch (error) {
     return NextResponse.json(

@@ -2,16 +2,16 @@ import "server-only";
 import { cookies } from "next/headers";
 import { getIronSession, type IronSession } from "iron-session";
 
+// The cookie now only identifies the logged-in user - it no longer carries
+// the Meta access token. That token lives encrypted in the MetaConnection
+// table (see lib/crypto.ts / prisma/schema.prisma) and is looked up by
+// userId on each request that needs it.
 export interface AdsChatSessionData {
-  metaAccessToken: string;
-  adAccountId: string;
-  accountName?: string;
-  currency?: string;
-  connectedAt: number;
+  userId?: string;
 }
 
 const SESSION_COOKIE_NAME = "ads_chat_session";
-const SESSION_TTL_SECONDS = 60 * 60 * 8; // 8 hours
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 function getSessionSecret(): string {
   const secret = process.env.SESSION_SECRET;
@@ -25,11 +25,9 @@ function getSessionSecret(): string {
 }
 
 /**
- * Reads/writes the encrypted, httpOnly session cookie that holds the connected
- * Meta ad account's credentials. This is the ONLY place those credentials are
- * persisted - there is no database and no server-side session store. The
- * cookie payload is encrypted and signed (AES-256-GCM via iron-session)
- * using SESSION_SECRET, so it cannot be read or forged by the client.
+ * Reads/writes the encrypted, httpOnly session cookie that identifies the
+ * logged-in user. Encrypted and signed (AES-256-GCM via iron-session) using
+ * SESSION_SECRET, so it cannot be read or forged by the client.
  */
 export async function getSession(): Promise<IronSession<AdsChatSessionData>> {
   const cookieStore = await cookies();
@@ -44,4 +42,10 @@ export async function getSession(): Promise<IronSession<AdsChatSessionData>> {
       path: "/",
     },
   });
+}
+
+/** Convenience helper for API routes: the logged-in user's id, or null. */
+export async function getCurrentUserId(): Promise<string | null> {
+  const session = await getSession();
+  return session.userId ?? null;
 }

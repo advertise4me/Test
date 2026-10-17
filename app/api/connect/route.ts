@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getCurrentUserId } from "@/lib/session";
+import { prisma } from "@/lib/db";
+import { encryptToken } from "@/lib/crypto";
 import { MetaApiError, getAdAccount, normalizeAdAccountId } from "@/mcp-server/meta-client";
 
 export async function POST(req: NextRequest) {
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "Log in first." }, { status: 401 });
+  }
+
   let body: unknown;
   try {
     body = await req.json();
@@ -19,20 +26,30 @@ export async function POST(req: NextRequest) {
   }
 
   const normalizedAccountId = normalizeAdAccountId(adAccountId);
+  const trimmedToken = accessToken.trim();
 
   try {
     const account = await getAdAccount({
-      accessToken: accessToken.trim(),
+      accessToken: trimmedToken,
       adAccountId: normalizedAccountId,
     });
 
-    const session = await getSession();
-    session.metaAccessToken = accessToken.trim();
-    session.adAccountId = normalizedAccountId;
-    session.accountName = account.name;
-    session.currency = account.currency;
-    session.connectedAt = Date.now();
-    await session.save();
+    await prisma.metaConnection.upsert({
+      where: { userId },
+      create: {
+        userId,
+        adAccountId: normalizedAccountId,
+        accountName: account.name,
+        currency: account.currency,
+        accessTokenCiphertext: encryptToken(trimmedToken),
+      },
+      update: {
+        adAccountId: normalizedAccountId,
+        accountName: account.name,
+        currency: account.currency,
+        accessTokenCiphertext: encryptToken(trimmedToken),
+      },
+    });
 
     return NextResponse.json({ ok: true, accountName: account.name, currency: account.currency });
   } catch (error) {

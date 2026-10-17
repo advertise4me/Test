@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String          @id @default(cuid())
+  email          String          @unique
+  passwordHash   String
+  createdAt      DateTime        @default(now())
+  metaConnection MetaConnection?
+}
+
+// One connected Meta ad account per user. The access token is encrypted at
+// rest (AES-256-GCM, see lib/crypto.ts) - the raw token never touches the
+// database in plaintext, same guarantee the old cookie-only design had.
+model MetaConnection {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adAccountId           String
+  accountName           String?
+  currency              String?
+  accessTokenCiphertext String
+  connectedAt           DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}

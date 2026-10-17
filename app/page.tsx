@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface SessionStatus {
+  loggedIn: boolean;
   connected: boolean;
   adAccountId?: string;
   accountName?: string;
@@ -22,10 +23,16 @@ export default function ConnectPage() {
   useEffect(() => {
     fetch("/api/session")
       .then((res) => res.json())
-      .then((data: SessionStatus) => setStatus(data))
-      .catch(() => setStatus({ connected: false }))
+      .then((data: SessionStatus) => {
+        if (!data.loggedIn) {
+          router.replace("/login");
+          return;
+        }
+        setStatus(data);
+      })
+      .catch(() => setStatus({ loggedIn: false, connected: false }))
       .finally(() => setCheckingStatus(false));
-  }, []);
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -52,20 +59,35 @@ export default function ConnectPage() {
 
   async function handleDisconnect() {
     await fetch("/api/disconnect", { method: "POST" });
-    setStatus({ connected: false });
+    setStatus((prev) => (prev ? { ...prev, connected: false } : prev));
   }
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+  }
+
+  if (checkingStatus) return null;
 
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-16">
       <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Ads Chat</h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            Connect a Meta ad account, then chat with Claude about its performance.
-          </p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Ads Chat</h1>
+            <p className="mt-2 text-sm text-zinc-600">
+              Connect a Meta ad account, then chat with Claude about its performance.
+            </p>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="shrink-0 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+          >
+            Log out
+          </button>
         </div>
 
-        {!checkingStatus && status?.connected && (
+        {status?.connected && (
           <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
             <p className="font-medium">
               Connected to {status.accountName ?? status.adAccountId}
@@ -144,8 +166,8 @@ export default function ConnectPage() {
           <p className="font-medium">How this works</p>
           <ul className="mt-1 list-inside list-disc space-y-1">
             <li>
-              There is no sign-up and no database. Your token is encrypted and stored only in an
-              httpOnly session cookie in this browser.
+              Your account is stored in a database; your Meta access token is encrypted before
+              it&apos;s saved and decrypted only when a request needs it.
             </li>
             <li>
               This MVP uses a manually pasted access token instead of a full Facebook Login/OAuth
@@ -160,7 +182,7 @@ export default function ConnectPage() {
               </a>{" "}
               or your app&apos;s System User settings.
             </li>
-            <li>Closing the browser or clicking Disconnect clears the session.</li>
+            <li>Disconnect removes the Meta connection; Log out ends your session.</li>
           </ul>
         </div>
       </div>
