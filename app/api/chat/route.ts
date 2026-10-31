@@ -43,7 +43,26 @@ This applies with no exceptions to anything that changes a budget or turns somet
 phrasing sounds like a direct command. Pausing something is lower-risk and reversible, but still confirm which \
 exact object before calling. If create_ad_creative fails because no Facebook Page is linked, tell the user to \
 link one from the connect page. If any tool call fails because the token lacks the ads_management permission, \
-tell the user they need to reconnect with a token that has that permission.`;
+tell the user they need to reconnect with a token that has that permission.
+
+After your main answer, end your reply with a fenced code block labeled suggestions containing ONLY a JSON \
+array of 2-3 short follow-up questions the user would plausibly ask next, directly tied to what you just said \
+(e.g. after naming the ad with the lowest CPA: ["Pause it?","Compare its CPA to last week"]). Write it exactly \
+like this, with no other text inside the fence:
+\`\`\`suggestions
+["Pause it?","Compare its CPA to last week"]
+\`\`\`
+Skip this block entirely when there truly is no sensible follow-up, such as a simple yes/no confirmation.
+
+If your answer is a genuine sequential procedure with 3 or more steps (e.g. how to fix audience overlap, or \
+steps to lower a campaign's CPA), do not write it as a markdown numbered list. Instead, after your prose, \
+include one fenced code block labeled steps containing JSON of the shape {"title"?: string, "steps": string[]} \
+with each array entry being one short step, like this:
+\`\`\`steps
+{"title":"Lower this campaign's CPA","steps":["Pause the two lowest-CTR ads","Narrow targeting to your top-performing age range","Raise the daily budget on the remaining ads by 15%"]}
+\`\`\`
+For anything with fewer than 3 steps, or that is not really a procedure, keep using a plain numbered list in \
+your prose instead - do not use the steps block for those.`;
 
 interface ChatTurn {
   role: "user" | "assistant";

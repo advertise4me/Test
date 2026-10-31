@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { parseAssistantContent } from "@/lib/parseAssistantContent";
+import StepsWidget from "@/components/StepsWidget";
 
 interface ChatTurn {
   role: "user" | "assistant";
@@ -40,9 +42,8 @@ export default function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history, sending, uploading]);
 
-  async function sendMessage(e: React.FormEvent) {
-    e.preventDefault();
-    const message = input.trim();
+  async function sendMessage(messageOverride?: string) {
+    const message = (messageOverride ?? input).trim();
     if (!message || sending) return;
 
     setSending(true);
@@ -69,6 +70,11 @@ export default function ChatPage() {
     } finally {
       setSending(false);
     }
+  }
+
+  function handleFormSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    sendMessage();
   }
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -136,20 +142,45 @@ export default function ChatPage() {
             paperclip button when asked.
           </div>
         )}
-        {history.map((turn, i) => (
-          <div key={i} className={turn.role === "user" ? "flex justify-end" : "flex justify-start"}>
-            <div
-              className={
-                "max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-2 text-sm " +
-                (turn.role === "user"
-                  ? "bg-zinc-900 text-white"
-                  : "border border-zinc-200 bg-white text-zinc-900")
-              }
-            >
-              {turn.content}
+        {history.map((turn, i) => {
+          if (turn.role === "user") {
+            return (
+              <div key={i} className="flex justify-end">
+                <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-zinc-900 px-4 py-2 text-sm text-white">
+                  {turn.content}
+                </div>
+              </div>
+            );
+          }
+
+          const parsed = parseAssistantContent(turn.content);
+          const isLastTurn = i === history.length - 1;
+
+          return (
+            <div key={i} className="flex justify-start">
+              <div className="max-w-[85%] space-y-2">
+                <div className="whitespace-pre-wrap rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-900">
+                  {parsed.text}
+                </div>
+                {parsed.steps && <StepsWidget spec={parsed.steps} />}
+                {isLastTurn && !sending && parsed.suggestions && parsed.suggestions.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {parsed.suggestions.map((suggestion, j) => (
+                      <button
+                        key={j}
+                        type="button"
+                        onClick={() => sendMessage(suggestion)}
+                        className="rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs text-zinc-700 hover:bg-zinc-100"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {uploading && (
           <div className="flex justify-end">
             <div className="max-w-[85%] rounded-2xl bg-zinc-700 px-4 py-2 text-sm text-white">
@@ -169,7 +200,7 @@ export default function ChatPage() {
 
       {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
 
-      <form onSubmit={sendMessage} className="flex gap-2 border-t border-zinc-200 pt-4">
+      <form onSubmit={handleFormSubmit} className="flex gap-2 border-t border-zinc-200 pt-4">
         <input
           ref={fileInputRef}
           type="file"
