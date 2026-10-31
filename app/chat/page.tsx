@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { parseAssistantContent } from "@/lib/parseAssistantContent";
 import StepsWidget from "@/components/StepsWidget";
+import AssistantMarkdown from "@/components/AssistantMarkdown";
+import LoadingIndicator from "@/components/LoadingIndicator";
 
 interface ChatTurn {
   role: "user" | "assistant";
@@ -159,8 +161,8 @@ export default function ChatPage() {
           return (
             <div key={i} className="flex justify-start">
               <div className="max-w-[85%] space-y-2">
-                <div className="whitespace-pre-wrap rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-900">
-                  {parsed.text}
+                <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-2">
+                  <AssistantMarkdown content={parsed.text} />
                 </div>
                 {parsed.steps && <StepsWidget spec={parsed.steps} />}
                 {isLastTurn && !sending && parsed.suggestions && parsed.suggestions.length > 0 && (
@@ -191,7 +193,7 @@ export default function ChatPage() {
         {sending && (
           <div className="flex justify-start">
             <div className="max-w-[85%] rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-500">
-              Thinking…
+              <LoadingIndicator />
             </div>
           </div>
         )}

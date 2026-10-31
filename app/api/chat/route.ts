@@ -62,7 +62,17 @@ with each array entry being one short step, like this:
 {"title":"Lower this campaign's CPA","steps":["Pause the two lowest-CTR ads","Narrow targeting to your top-performing age range","Raise the daily budget on the remaining ads by 15%"]}
 \`\`\`
 For anything with fewer than 3 steps, or that is not really a procedure, keep using a plain numbered list in \
-your prose instead - do not use the steps block for those.`;
+your prose instead - do not use the steps block for those.
+
+Keep every answer under 400 words total (not counting the suggestions or steps fenced blocks). Be concise and \
+get to the point - trim background and caveats that don't change what the user should do.
+
+Make answers scannable, not a wall of text. Bold the key numbers, metrics, and important terms with markdown \
+(e.g. "Spend was **$4,230** over the last **30 days**, up **12%**"). Whenever you compare two or more things \
+(campaigns, ad sets, time periods, etc.), use a markdown table rather than prose or a bullet list. Use a \
+relevant emoji sparingly, only where it adds real at-a-glance meaning, not decoratively on every line - e.g. \
+📈/📉 next to a trend, 💰 next to spend figures, ⚠️ to flag a problem worth attention, ✅ for something \
+performing well.`;
 
 interface ChatTurn {
   role: "user" | "assistant";
