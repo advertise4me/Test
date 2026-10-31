@@ -6,7 +6,7 @@ const WAITING_MESSAGES = [
   "Digging through your ad data...",
   "Teaching the robots marketing...",
   "Lining up your metrics...",
-  "Consulting the algorithm gods...",
+  "Consulting the algorithm...",
   "Sharpening the charts...",
   "Herding pixels into place...",
   "Double-checking the math...",
