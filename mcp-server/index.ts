@@ -122,7 +122,10 @@ server.registerTool(
   {
     title: "List ads",
     description:
-      "List ads, optionally scoped to one ad set or campaign. Returns id, name, and status.",
+      "List ads, optionally scoped to one ad set or campaign. Returns id, name, status, the raw " +
+      "creative data, and destination_url - the page the ad's creative links to (e.g. the homepage " +
+      "vs. a specific product page), when Meta's API exposes one for that creative type. destination_url " +
+      "is null when none could be determined.",
     inputSchema: {
       ad_set_id: z.string().optional().describe("If provided, only list ads in this ad set."),
       campaign_id: z

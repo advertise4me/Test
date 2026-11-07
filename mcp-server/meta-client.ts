@@ -148,7 +148,38 @@ const CAMPAIGN_FIELDS =
 const ADSET_FIELDS =
   "id,name,status,effective_status,campaign_id,daily_budget,lifetime_budget,optimization_goal,billing_event,start_time,end_time";
 const AD_FIELDS =
-  "id,name,status,effective_status,adset_id,campaign_id,created_time";
+  "id,name,status,effective_status,adset_id,campaign_id,created_time," +
+  "creative{id,name,object_story_spec,asset_feed_spec,effective_object_story_id}";
+
+interface RawAdCreative {
+  id?: string;
+  name?: string;
+  object_story_spec?: {
+    link_data?: { link?: string };
+    video_data?: { call_to_action?: { value?: { link?: string } } };
+  };
+  asset_feed_spec?: {
+    link_urls?: Array<{ website_url?: string }>;
+  };
+  effective_object_story_id?: string;
+}
+
+/**
+ * Best-effort destination URL (the page the ad's creative links to) from whichever
+ * shape Meta populated - standard link ads nest it under object_story_spec.link_data,
+ * video ads under object_story_spec.video_data's call-to-action, and dynamic/flexible
+ * ads under asset_feed_spec.link_urls instead. Returns null, never a guess, if none
+ * of those are present (e.g. the creative only has effective_object_story_id).
+ */
+function extractDestinationUrl(creative: RawAdCreative | undefined): string | null {
+  if (!creative) return null;
+  return (
+    creative.object_story_spec?.link_data?.link ??
+    creative.object_story_spec?.video_data?.call_to_action?.value?.link ??
+    creative.asset_feed_spec?.link_urls?.find((entry) => entry.website_url)?.website_url ??
+    null
+  );
+}
 
 export interface GraphListResult<T> {
   data: T[];
@@ -188,11 +219,18 @@ export async function listAds(
   opts: ListOptions & { adSetId?: string; campaignId?: string } = {},
 ) {
   const node = opts.adSetId ?? opts.campaignId ?? config.adAccountId;
-  return graphGet<GraphListResult<Record<string, unknown>>>(
+  const result = await graphGet<GraphListResult<Record<string, unknown>>>(
     `/${node}/ads`,
     config.accessToken,
     { fields: AD_FIELDS, limit: opts.limit ?? 50, after: opts.after },
   );
+  return {
+    ...result,
+    data: result.data.map((ad) => ({
+      ...ad,
+      destination_url: extractDestinationUrl(ad.creative as RawAdCreative | undefined),
+    })),
+  };
 }
 
 export type InsightsLevel = "account" | "campaign" | "adset" | "ad";
