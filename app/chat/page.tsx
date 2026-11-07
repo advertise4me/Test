@@ -7,6 +7,7 @@ import { AUTO_SUMMARY_PROMPT } from "@/lib/autoSummary";
 import StepsWidget from "@/components/StepsWidget";
 import AssistantMarkdown from "@/components/AssistantMarkdown";
 import LoadingIndicator from "@/components/LoadingIndicator";
+import ConfirmActionCard, { type ActionResolution } from "@/components/ConfirmActionCard";
 
 interface ChatTurn {
   role: "user" | "assistant";
@@ -29,6 +30,7 @@ export default function ChatPage() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoOpeningSent, setAutoOpeningSent] = useState(false);
+  const [actionResolutions, setActionResolutions] = useState<Record<string, ActionResolution>>({});
   const autoOpeningTriggeredRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -130,6 +132,19 @@ export default function ChatPage() {
     router.replace("/");
   }
 
+  function handleActionResolved(id: string, resolution: ActionResolution) {
+    setActionResolutions((prev) => ({ ...prev, [id]: resolution }));
+  }
+
+  // While the latest assistant turn has a write action awaiting
+  // confirmation, block further sending - the user can still read/scroll,
+  // but must resolve it (Confirm or Cancel) in the card first.
+  const lastTurn = history[history.length - 1];
+  const lastConfirmActions =
+    lastTurn?.role === "assistant" ? parseAssistantContent(lastTurn.content).confirmActions : undefined;
+  const hasUnresolvedAction = (lastConfirmActions ?? []).some((a) => !actionResolutions[a.id]);
+  const inputDisabled = sending || uploading || hasUnresolvedAction;
+
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-6">
       <header className="mb-4 flex items-center justify-between border-b border-zinc-200 pb-4">
@@ -185,20 +200,32 @@ export default function ChatPage() {
                   <AssistantMarkdown content={parsed.text} />
                 </div>
                 {parsed.steps && <StepsWidget spec={parsed.steps} />}
-                {isLastTurn && !sending && parsed.suggestions && parsed.suggestions.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {parsed.suggestions.map((suggestion, j) => (
-                      <button
-                        key={j}
-                        type="button"
-                        onClick={() => sendMessage(suggestion)}
-                        className="rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs text-zinc-700 hover:bg-zinc-100"
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {parsed.confirmActions?.map((action) => (
+                  <ConfirmActionCard
+                    key={action.id}
+                    action={action}
+                    resolution={actionResolutions[action.id]}
+                    onResolve={handleActionResolved}
+                  />
+                ))}
+                {isLastTurn &&
+                  !sending &&
+                  !hasUnresolvedAction &&
+                  parsed.suggestions &&
+                  parsed.suggestions.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {parsed.suggestions.map((suggestion, j) => (
+                        <button
+                          key={j}
+                          type="button"
+                          onClick={() => sendMessage(suggestion)}
+                          className="rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs text-zinc-700 hover:bg-zinc-100"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  )}
               </div>
             </div>
           );
@@ -221,6 +248,9 @@ export default function ChatPage() {
       </div>
 
       {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
+      {hasUnresolvedAction && (
+        <p className="mb-2 text-xs text-amber-700">Confirm or cancel the pending action above to keep chatting.</p>
+      )}
 
       <form onSubmit={handleFormSubmit} className="flex gap-2 border-t border-zinc-200 pt-4">
         <input
@@ -233,7 +263,7 @@ export default function ChatPage() {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          disabled={uploading || sending}
+          disabled={inputDisabled}
           title="Attach an image or video"
           className="shrink-0 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 disabled:opacity-50"
         >
@@ -242,12 +272,13 @@ export default function ChatPage() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          disabled={inputDisabled}
           placeholder="Ask about campaigns, spend, CTR, ROAS..."
-          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:opacity-50"
         />
         <button
           type="submit"
-          disabled={sending || !input.trim()}
+          disabled={inputDisabled || !input.trim()}
           className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
         >
           Send

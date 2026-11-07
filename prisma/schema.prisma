@@ -35,3 +35,21 @@ model MetaConnection {
   connectedAt           DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
+
+// Audit trail of Meta write actions actually executed through the
+// confirm-action flow (see app/api/meta/confirm-action/route.ts). Write
+// tool calls that are only proposed and never confirmed are not logged
+// here - this table is only ever written to right after a real Meta API
+// call succeeds or fails.
+model WriteActionLog {
+  id        String   @id @default(cuid())
+  userId    String
+  tool      String
+  summary   String
+  input     String
+  status    String
+  result    String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

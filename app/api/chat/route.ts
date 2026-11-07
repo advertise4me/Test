@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { decryptToken } from "@/lib/crypto";
 import { startMetaAdsMcpSession } from "@/lib/mcp-client";
 import { AUTO_SUMMARY_PROMPT } from "@/lib/autoSummary";
+import { isWriteTool, prepareWriteAction } from "@/lib/metaWriteGate";
+import { createPendingAction } from "@/lib/pendingActions";
 
 // See the claude-api skill for current model IDs - claude-opus-5 is the
 // current default recommendation. Override with CLAUDE_MODEL if desired.
@@ -180,6 +182,7 @@ export async function POST(req: NextRequest) {
     ];
 
     let finalText = "";
+    const pendingActionsThisTurn: { id: string; tool: string; summary: string }[] = [];
 
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
       const response = await anthropic.messages.create({
@@ -199,11 +202,39 @@ export async function POST(req: NextRequest) {
 
         const toolResults: Anthropic.ToolResultBlockParam[] = [];
         for (const block of toolUseBlocks) {
+          const input = (block.input ?? {}) as Record<string, unknown>;
+
+          // Write tools (create/update anything on the Meta account) never run here.
+          // They're intercepted into a pending action that only
+          // app/api/meta/confirm-action/route.ts can execute, after the user
+          // explicitly confirms it in the UI. Read tools (list/get) are
+          // unaffected and still execute immediately below.
+          if (isWriteTool(block.name)) {
+            const prepared = prepareWriteAction(block.name, input, connection.currency ?? undefined);
+            if (!prepared.ok) {
+              toolResults.push({
+                type: "tool_result",
+                tool_use_id: block.id,
+                is_error: true,
+                content: prepared.reason,
+              });
+              continue;
+            }
+            const pending = createPendingAction(userId, block.name, prepared.sanitizedInput, prepared.summary);
+            pendingActionsThisTurn.push({ id: pending.id, tool: pending.tool, summary: pending.summary });
+            toolResults.push({
+              type: "tool_result",
+              tool_use_id: block.id,
+              content:
+                `Awaiting user confirmation for this action (id: ${pending.id}) - do not assume it succeeded or failed. ` +
+                `Tell the user exactly what you're proposing ("${pending.summary}") and that they need to confirm it in ` +
+                "the confirmation card below before anything changes on their Meta account.",
+            });
+            continue;
+          }
+
           try {
-            const text = await mcpSession.callTool(
-              block.name,
-              (block.input ?? {}) as Record<string, unknown>,
-            );
+            const text = await mcpSession.callTool(block.name, input);
             toolResults.push({ type: "tool_result", tool_use_id: block.id, content: text });
           } catch (error) {
             toolResults.push({
@@ -229,6 +260,13 @@ export async function POST(req: NextRequest) {
     if (!finalText) {
       finalText =
         "I wasn't able to finish that within the allotted number of tool calls - try asking a more specific question.";
+    }
+
+    // Carried in the reply text itself (same convention as the existing
+    // ```suggestions and ```steps fenced blocks) so it round-trips through
+    // `history` and survives a page reload without a separate response field.
+    if (pendingActionsThisTurn.length > 0) {
+      finalText += `\n\n\`\`\`confirm_actions\n${JSON.stringify(pendingActionsThisTurn)}\n\`\`\``;
     }
 
     const updatedHistory: ChatTurn[] = [

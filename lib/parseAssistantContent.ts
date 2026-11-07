@@ -3,10 +3,17 @@ export interface StepsSpec {
   steps: string[];
 }
 
+export interface ConfirmAction {
+  id: string;
+  tool: string;
+  summary: string;
+}
+
 export interface ParsedAssistantContent {
   text: string;
   suggestions?: string[];
   steps?: StepsSpec;
+  confirmActions?: ConfirmAction[];
 }
 
 function extractFencedBlock(source: string, language: string): { raw: string; body: string } | null {
@@ -27,6 +34,16 @@ function isStepsSpec(value: unknown): value is StepsSpec {
   return isStringArray(v.steps) && v.steps.length > 0;
 }
 
+function isConfirmAction(value: unknown): value is ConfirmAction {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.id === "string" && typeof v.tool === "string" && typeof v.summary === "string";
+}
+
+function isConfirmActionArray(value: unknown): value is ConfirmAction[] {
+  return Array.isArray(value) && value.length > 0 && value.every(isConfirmAction);
+}
+
 /**
  * Pulls the ```suggestions and ```steps fenced JSON blocks (per the chat
  * system prompt's convention) out of a raw assistant message, returning the
@@ -37,6 +54,7 @@ export function parseAssistantContent(raw: string): ParsedAssistantContent {
   let text = raw;
   let suggestions: string[] | undefined;
   let steps: StepsSpec | undefined;
+  let confirmActions: ConfirmAction[] | undefined;
 
   const suggestionsBlock = extractFencedBlock(text, "suggestions");
   if (suggestionsBlock) {
@@ -64,5 +82,18 @@ export function parseAssistantContent(raw: string): ParsedAssistantContent {
     }
   }
 
-  return { text: text.trim(), suggestions, steps };
+  const confirmActionsBlock = extractFencedBlock(text, "confirm_actions");
+  if (confirmActionsBlock) {
+    text = text.replace(confirmActionsBlock.raw, "");
+    try {
+      const parsed = JSON.parse(confirmActionsBlock.body);
+      if (isConfirmActionArray(parsed)) {
+        confirmActions = parsed;
+      }
+    } catch {
+      // malformed - silently drop
+    }
+  }
+
+  return { text: text.trim(), suggestions, steps, confirmActions };
 }
