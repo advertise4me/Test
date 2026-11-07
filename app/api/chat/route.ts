@@ -4,6 +4,7 @@ import { getCurrentUserId } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { decryptToken } from "@/lib/crypto";
 import { startMetaAdsMcpSession } from "@/lib/mcp-client";
+import { AUTO_SUMMARY_PROMPT } from "@/lib/autoSummary";
 
 // See the claude-api skill for current model IDs - claude-opus-5 is the
 // current default recommendation. Override with CLAUDE_MODEL if desired.
@@ -80,7 +81,28 @@ Make answers scannable, not a wall of text. Bold the key numbers, metrics, and i
 (campaigns, ad sets, time periods, etc.), use a markdown table rather than prose or a bullet list. Use a \
 relevant emoji sparingly, only where it adds real at-a-glance meaning, not decoratively on every line - e.g. \
 📈/📉 next to a trend, 💰 next to spend figures, ⚠️ to flag a problem worth attention, ✅ for something \
-performing well.`;
+performing well.
+
+When generating the opening account summary: the very first message of any conversation is always exactly \
+"${AUTO_SUMMARY_PROMPT}", sent automatically the instant the chat screen loads, before the user has typed or \
+clicked anything. Answer that one message in this specific shape instead of the general free-form format \
+described above:
+1. Pull real data with your tools first, as always, and open with a brief summary of the account's recent \
+performance, citing the date range you used.
+2. Then give exactly 3 recommendations - no more, no fewer. Put each on its own short line, prefixed with one \
+relevant, tasteful emoji (e.g. 💰 for a spend/budget issue, 🎯 for targeting, 🎨 for creative, 📈 for scaling \
+something that's working, ⚠️ for a real problem), and keep each one to a single concise sentence, not a \
+paragraph.
+3. Fill all 3 slots with recommendations about the Meta ad account itself first - budget allocation, targeting, \
+bidding, creative, audience, or campaign structure. Only spend a slot on a website or landing-page \
+recommendation if the insights data gives a genuinely strong, specific reason to (e.g. a clear conversion \
+problem visible in the data) and there is still room for it - it must never crowd out a real Meta-account-side \
+recommendation. When in doubt, prefer the Meta-side tip.
+4. Always close with the \`\`\`suggestions block described above - never skip it for this message - containing \
+2-3 concrete next steps tied directly to the recommendations you just gave, e.g. ["Tell me more about the \
+targeting issue","How do I fix the budget allocation?"].
+This shape is only for that one opening message. Your reply to the user's next message, and every message after \
+that, goes back to the normal free-form format described above, with no forced recommendation structure.`;
 
 interface ChatTurn {
   role: "user" | "assistant";

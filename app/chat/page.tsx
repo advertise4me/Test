@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { parseAssistantContent } from "@/lib/parseAssistantContent";
+import { AUTO_SUMMARY_PROMPT } from "@/lib/autoSummary";
 import StepsWidget from "@/components/StepsWidget";
 import AssistantMarkdown from "@/components/AssistantMarkdown";
 import LoadingIndicator from "@/components/LoadingIndicator";
@@ -27,6 +28,8 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoOpeningSent, setAutoOpeningSent] = useState(false);
+  const autoOpeningTriggeredRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -39,6 +42,17 @@ export default function ChatPage() {
       })
       .catch(() => router.replace("/"));
   }, [router]);
+
+  // Fire the opening account summary automatically the moment a fresh,
+  // empty conversation loads - the user shouldn't have to type or click
+  // anything to get it. Only ever fires once per page load.
+  useEffect(() => {
+    if (!status?.connected || history.length > 0 || autoOpeningTriggeredRef.current) return;
+    autoOpeningTriggeredRef.current = true;
+    setAutoOpeningSent(true);
+    sendMessage(AUTO_SUMMARY_PROMPT);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -146,6 +160,12 @@ export default function ChatPage() {
         )}
         {history.map((turn, i) => {
           if (turn.role === "user") {
+            // The opening summary's trigger message is an internal prompt,
+            // not something the user actually typed - don't show it as a
+            // chat bubble.
+            if (i === 0 && autoOpeningSent && turn.content === AUTO_SUMMARY_PROMPT) {
+              return null;
+            }
             return (
               <div key={i} className="flex justify-end">
                 <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-zinc-900 px-4 py-2 text-sm text-white">
