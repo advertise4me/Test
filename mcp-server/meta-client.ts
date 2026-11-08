@@ -146,7 +146,8 @@ export interface ListOptions {
 const CAMPAIGN_FIELDS =
   "id,name,status,effective_status,objective,daily_budget,lifetime_budget,start_time,stop_time,created_time";
 const ADSET_FIELDS =
-  "id,name,status,effective_status,campaign_id,daily_budget,lifetime_budget,optimization_goal,billing_event,start_time,end_time";
+  "id,name,status,effective_status,campaign_id,daily_budget,lifetime_budget,optimization_goal,billing_event," +
+  "start_time,end_time,learning_stage_info";
 const AD_FIELDS =
   "id,name,status,effective_status,adset_id,campaign_id,created_time," +
   "creative{id,name,object_story_spec,asset_feed_spec,effective_object_story_id}";
@@ -246,12 +247,14 @@ const INSIGHTS_FIELDS = [
   "reach",
   "frequency",
   "clicks",
+  "inline_link_clicks",
   "ctr",
   "cpc",
   "cpm",
   "cpp",
   "actions",
   "action_values",
+  "cost_per_action_type",
   "purchase_roas",
 ].join(",");
 

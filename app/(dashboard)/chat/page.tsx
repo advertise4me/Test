@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { parseAssistantContent } from "@/lib/parseAssistantContent";
 import { AUTO_SUMMARY_PROMPT } from "@/lib/autoSummary";
 import StepsWidget from "@/components/StepsWidget";
@@ -22,10 +22,25 @@ interface SessionStatus {
 }
 
 export default function ChatPage() {
+  return (
+    <Suspense fallback={null}>
+      <ChatPageInner />
+    </Suspense>
+  );
+}
+
+// useSearchParams() (read below to seed a ?prefill= message) requires a
+// Suspense boundary - the wrapper above provides it.
+function ChatPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [status, setStatus] = useState<SessionStatus | null>(null);
   const [history, setHistory] = useState<ChatTurn[]>([]);
-  const [input, setInput] = useState("");
+  // Seeded once from a ?prefill= param (e.g. tapping a recommendation on the
+  // AI Summary tab) - read via the lazy initializer so this only happens on
+  // the very first render, not sent automatically; the user still has to
+  // hit Send.
+  const [input, setInput] = useState(() => searchParams.get("prefill") ?? "");
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +59,12 @@ export default function ChatPage() {
       })
       .catch(() => router.replace("/"));
   }, [router]);
+
+  // Strips the ?prefill= param from the URL once it's been read into
+  // `input` above, so a refresh doesn't re-seed it.
+  useEffect(() => {
+    if (searchParams.get("prefill")) router.replace("/chat");
+  }, [searchParams, router]);
 
   // Fire the opening account summary automatically the moment a fresh,
   // empty conversation loads - the user shouldn't have to type or click
@@ -66,7 +87,11 @@ export default function ChatPage() {
 
     setSending(true);
     setError(null);
-    setInput("");
+    // Only clear the visible input box when the message actually came from
+    // it - the internal auto-opening summary (sent via messageOverride)
+    // shouldn't wipe out a prefilled message (e.g. from the AI Summary tab)
+    // that's waiting for the user to send.
+    if (messageOverride === undefined) setInput("");
     setHistory((prev) => [...prev, { role: "user", content: message }]);
 
     try {

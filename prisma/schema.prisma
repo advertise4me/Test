@@ -8,11 +8,12 @@ datasource db {
 }
 
 model User {
-  id             String          @id @default(cuid())
-  email          String          @unique
-  passwordHash   String
-  createdAt      DateTime        @default(now())
-  metaConnection MetaConnection?
+  id              String           @id @default(cuid())
+  email           String           @unique
+  passwordHash    String
+  createdAt       DateTime         @default(now())
+  metaConnection  MetaConnection?
+  dashboardConfig DashboardConfig?
 }
 
 // One connected Meta ad account per user. The access token is encrypted at
@@ -34,6 +35,25 @@ model MetaConnection {
   facebookPageName      String?
   connectedAt           DateTime @default(now())
   updatedAt             DateTime @updatedAt
+}
+
+// The AI Summary tab's per-user business-type classification (see
+// lib/kpiConfig.ts), auto-detected from the connected ad account's campaign
+// objectives and action types the first time the summary is loaded, and
+// cached here so the tab doesn't re-detect (and potentially flip-flop) on
+// every request. businessType is one of lib/kpiConfig.ts's BusinessType
+// values. targetValue/primaryKpi are blank until Settings (Phase 5) lets the
+// user set a goal; detection can be overridden there once that UI exists.
+model DashboardConfig {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessType String
+  primaryKpi   String?
+  targetValue  Float?
+  currency     String?
+  detectedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 // Audit trail of Meta write actions actually executed through the
