@@ -14,6 +14,60 @@ model User {
   createdAt       DateTime         @default(now())
   metaConnection  MetaConnection?
   dashboardConfig DashboardConfig?
+
+  // --- Settings (Phase 5a) --------------------------------------------
+  fullName        String?
+  businessName    String?
+  businessWebsite String?
+  // "en" | "es" - stored only, no translation work done yet (see Settings
+  // 6.1 Language preference).
+  language        String           @default("en")
+
+  // Optional monthly spend cap (Settings 6.4). Stored only in this phase -
+  // nothing currently reads or enforces it; see Settings 6.4 in the Phase 5a
+  // report for what a future phase would need to wire this up to.
+  monthlySpendCap Float?
+
+  // Email notification preferences (Settings 6.5). Push is not built yet -
+  // see components/dashboard/settings/NotificationsSection.tsx.
+  notifyWeeklySummary  Boolean @default(true)
+  notifyNeedsAttention Boolean @default(true)
+  notifyMetaAccessLost Boolean @default(true)
+
+  emailChangeTokens   EmailChangeToken[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+// Single-use, short-expiry token proving control of a NEW email address
+// before User.email actually changes (Settings 6.2 "Change email"). The
+// email only changes once the link built from this token is visited - see
+// app/api/auth/verify-email-change/route.ts.
+model EmailChangeToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  newEmail  String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Single-use, short-expiry token for the "forgot password" flow (Settings
+// 6.2 / the logged-out login page) - see
+// app/api/auth/{forgot-password,reset-password}/route.ts.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 // One connected Meta ad account per user. The access token is encrypted at
@@ -33,6 +87,21 @@ model MetaConnection {
   // until the user picks one.
   facebookPageId        String?
   facebookPageName      String?
+  // Business portfolio the ad account belongs to, if the Graph API reports
+  // one for this token (Settings 6.3 "Connected accounts"). Null if the
+  // account isn't under a Business Manager / the token can't see it.
+  businessId            String?
+  businessPortfolioName String?
+  // Updated by app/api/summary/route.ts on every summary load - "ok" right
+  // after a successful Meta call, "error" when that call fails with an
+  // expired/invalid token. Drives the status dot and "last sync" time in
+  // Settings 6.3 without Settings itself having to call Meta.
+  lastSyncAt            DateTime?
+  lastSyncStatus        String?
+  // Throttle for the "Meta access lost" email alert (Settings 6.5) - set
+  // when that alert is actually sent, so a flaky/retried request doesn't
+  // re-send it every time.
+  lastAccessLostAlertAt DateTime?
   connectedAt           DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
@@ -54,6 +123,10 @@ model DashboardConfig {
   currency     String?
   detectedAt   DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  // Throttle for the "Needs attention" email alert (Settings 6.5) - set
+  // when that alert is actually sent, so repeated summary loads while the
+  // account is still in "attention" status don't re-send it every time.
+  lastAttentionAlertAt DateTime?
 }
 
 // Audit trail of Meta write actions actually executed through the

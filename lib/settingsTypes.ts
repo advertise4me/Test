@@ -1,0 +1,42 @@
+// Shared shape between app/api/settings/route.ts (GET) and the Settings
+// tab's client components - keeps the two from drifting independently.
+
+export interface SettingsResponse {
+  profile: {
+    email: string;
+    fullName: string | null;
+    businessName: string | null;
+    businessWebsite: string | null;
+    language: string;
+  };
+  businessTypeOptions: Array<{ value: string; label: string }>;
+  dashboardConfig: {
+    businessType: string | null;
+    businessTypeLabel: string | null;
+    primaryKpiLabel: string | null;
+    targetValue: number | null;
+    currency: string | null;
+  } | null;
+  metaConnection:
+    | {
+        connected: true;
+        adAccountId: string;
+        accountName: string | null;
+        businessPortfolioName: string | null;
+        status: "connected" | "error";
+        lastSyncAt: string | null;
+      }
+    | { connected: false };
+  spendingControls: {
+    monthlySpendCap: number | null;
+  };
+  notifications: {
+    weeklySummary: boolean;
+    needsAttention: boolean;
+    metaAccessLost: boolean;
+  };
+  about: {
+    appVersion: string;
+    supportEmail: string;
+  };
+}

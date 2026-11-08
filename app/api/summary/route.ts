@@ -12,11 +12,17 @@ import {
 } from "@/lib/kpiConfig";
 import { generateSummaryCopy } from "@/lib/aiCopy";
 import type { SummaryResponse } from "@/lib/summaryTypes";
+import { sendMetaAccessLostAlert, sendNeedsAttentionAlert } from "@/lib/emailTemplates";
 
 const LEARNING_STATUSES = new Set(["LEARNING", "LEARNING_LIMITED"]);
+const ALERT_THROTTLE_MS = 24 * 60 * 60 * 1000; // don't re-send either alert more than once a day
 
 function isTokenError(error: unknown): boolean {
   return error instanceof MetaApiError && (error.code === 190 || error.type === "OAuthException");
+}
+
+function dueForAlert(lastSentAt: Date | null): boolean {
+  return !lastSentAt || Date.now() - lastSentAt.getTime() > ALERT_THROTTLE_MS;
 }
 
 export async function GET(req: NextRequest) {
@@ -65,6 +71,13 @@ export async function GET(req: NextRequest) {
     const data = buildDashboardData(businessType, currentSummary, previousSummary, currency, dashboardConfig.targetValue, learningPhase);
     const copy = await generateSummaryCopy(data, period, learningPhase);
 
+    await markSyncOk(userId);
+    // Only the default/current-week load drives the alert, so switching the
+    // period selector to look at older data never triggers it.
+    if (period === "this_week" && data.status.level === "attention") {
+      await maybeSendAttentionAlert(userId, data.status, req);
+    }
+
     return NextResponse.json({
       state: "ok",
       period,
@@ -79,11 +92,65 @@ export async function GET(req: NextRequest) {
     } satisfies SummaryResponse);
   } catch (error) {
     if (isTokenError(error)) {
+      await markSyncErrorAndMaybeAlert(userId, req);
       return NextResponse.json({ state: "token_expired" } satisfies SummaryResponse);
     }
     console.error("summary error", error);
     const message = error instanceof MetaApiError ? error.message : "Something went wrong loading your summary.";
     return NextResponse.json({ state: "error", message } satisfies SummaryResponse, { status: 500 });
+  }
+}
+
+/** Best-effort: records that the latest summary load succeeded against Meta - drives Settings 6.3's status dot / "last sync" time. */
+async function markSyncOk(userId: string): Promise<void> {
+  try {
+    await prisma.metaConnection.update({
+      where: { userId },
+      data: { lastSyncAt: new Date(), lastSyncStatus: "ok" },
+    });
+  } catch (error) {
+    console.error("failed to record successful sync", error);
+  }
+}
+
+/** Best-effort: records the token failure, and emails the user once (throttled) that Meta access was lost - Settings 6.5. */
+async function markSyncErrorAndMaybeAlert(userId: string, req: NextRequest): Promise<void> {
+  try {
+    const connection = await prisma.metaConnection.findUnique({ where: { userId } });
+    if (!connection) return;
+    await prisma.metaConnection.update({ where: { userId }, data: { lastSyncStatus: "error" } });
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, notifyMetaAccessLost: true } });
+    if (!user || !user.notifyMetaAccessLost) return;
+    if (!dueForAlert(connection.lastAccessLostAlertAt)) return;
+
+    const reconnectUrl = `${req.nextUrl.origin}/settings`;
+    await sendMetaAccessLostAlert(user.email, reconnectUrl);
+    await prisma.metaConnection.update({ where: { userId }, data: { lastAccessLostAlertAt: new Date() } });
+  } catch (error) {
+    console.error("failed to send meta-access-lost alert", error);
+  }
+}
+
+/** Best-effort: emails the user once (throttled) that their account status is "needs attention" - Settings 6.5. */
+async function maybeSendAttentionAlert(
+  userId: string,
+  status: { headline: string; detail: string },
+  req: NextRequest,
+): Promise<void> {
+  try {
+    const [user, dashboardConfig] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId }, select: { email: true, notifyNeedsAttention: true } }),
+      prisma.dashboardConfig.findUnique({ where: { userId } }),
+    ]);
+    if (!user || !user.notifyNeedsAttention || !dashboardConfig) return;
+    if (!dueForAlert(dashboardConfig.lastAttentionAlertAt)) return;
+
+    const appUrl = `${req.nextUrl.origin}/summary`;
+    await sendNeedsAttentionAlert(user.email, { headline: status.headline, detail: status.detail, appUrl });
+    await prisma.dashboardConfig.update({ where: { userId }, data: { lastAttentionAlertAt: new Date() } });
+  } catch (error) {
+    console.error("failed to send needs-attention alert", error);
   }
 }
 

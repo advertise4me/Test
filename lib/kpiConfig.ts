@@ -331,6 +331,16 @@ const HEADLINE_KPI: Record<BusinessType, KpiDef[]> = {
   fallback: [CLICKS],
 };
 
+/** The headline KPI key for a business type (e.g. "roas" for ecommerce) - used to label the target-value field in Settings 6.1. */
+export function primaryKpiKeyForType(type: BusinessType): string {
+  return HEADLINE_KPI[type][0]?.key ?? CLICKS.key;
+}
+
+/** The headline KPI's display label for a business type (e.g. "Return on ad spend") - used in Settings 6.1. */
+export function primaryKpiLabelForType(type: BusinessType): string {
+  return HEADLINE_KPI[type][0]?.label ?? CLICKS.label;
+}
+
 export function buildKpiTiles(type: BusinessType, current: InsightsSummary, previous: InsightsSummary, currency: string): KpiTile[] {
   const tiles: KpiTile[] = [];
   for (const candidates of KPI_SLOTS[type]) {

@@ -57,6 +57,10 @@ export async function POST(req: NextRequest) {
         accessTokenCiphertext: encryptToken(trimmedToken),
         facebookPageId: autoPage?.id,
         facebookPageName: autoPage?.name,
+        businessId: account.business?.id,
+        businessPortfolioName: account.business?.name,
+        lastSyncAt: new Date(),
+        lastSyncStatus: "ok",
       },
       update: {
         adAccountId: normalizedAccountId,
@@ -65,6 +69,11 @@ export async function POST(req: NextRequest) {
         accessTokenCiphertext: encryptToken(trimmedToken),
         facebookPageId: autoPage?.id,
         facebookPageName: autoPage?.name,
+        businessId: account.business?.id,
+        businessPortfolioName: account.business?.name,
+        lastSyncAt: new Date(),
+        lastSyncStatus: "ok",
+        lastAccessLostAlertAt: null,
       },
     });
 

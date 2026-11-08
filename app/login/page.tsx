@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -79,6 +80,13 @@ export default function LoginPage() {
             />
             {mode === "signup" && (
               <p className="mt-1 text-xs text-zinc-500">At least 8 characters.</p>
+            )}
+            {mode === "login" && (
+              <p className="mt-1 text-right text-xs">
+                <Link href="/forgot-password" className="text-zinc-500 underline">
+                  Forgot password?
+                </Link>
+              </p>
             )}
           </div>
 

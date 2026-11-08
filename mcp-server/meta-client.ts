@@ -133,8 +133,12 @@ export async function getAdAccount(config: MetaClientConfig) {
     account_status: number;
     currency: string;
     timezone_name: string;
+    // Only present when the ad account sits under a Business Manager /
+    // business portfolio the token can see - absent for a plain personal
+    // ad account. Used by Settings 6.3 "Connected accounts" if available.
+    business?: { id: string; name: string };
   }>(`/${config.adAccountId}`, config.accessToken, {
-    fields: "id,account_id,name,account_status,currency,timezone_name",
+    fields: "id,account_id,name,account_status,currency,timezone_name,business{id,name}",
   });
 }
 
