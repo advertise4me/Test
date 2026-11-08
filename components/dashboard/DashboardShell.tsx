@@ -19,7 +19,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const onSummaryTab = pathname === "/summary" || pathname.startsWith("/summary/");
 
   return (
-    <div className="dashboard-shell flex min-h-dvh flex-col">
+    <div className="dashboard-shell flex h-dvh flex-col overflow-hidden">
       {onSummaryTab && <SummaryHeader email={email} />}
       <div className="flex-1 overflow-y-auto">{children}</div>
       <TabBar />
