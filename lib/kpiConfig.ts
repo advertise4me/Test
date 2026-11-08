@@ -343,11 +343,18 @@ export function primaryKpiLabelForType(type: BusinessType): string {
 
 export function buildKpiTiles(type: BusinessType, current: InsightsSummary, previous: InsightsSummary, currency: string): KpiTile[] {
   const tiles: KpiTile[] = [];
+  const usedKeys = new Set<string>();
   for (const candidates of KPI_SLOTS[type]) {
     for (const def of candidates) {
+      // A candidate already placed in an earlier slot can't be reused here -
+      // that would render two tiles with the same key. Try the next
+      // candidate in the chain instead, and if none are left, drop this
+      // slot's tile rather than duplicate one.
+      if (usedKeys.has(def.key)) continue;
       const tile = buildTile(def, current, previous, currency);
       if (tile) {
         tiles.push(tile);
+        usedKeys.add(def.key);
         break;
       }
     }

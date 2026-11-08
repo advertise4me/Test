@@ -16,9 +16,11 @@ function ChangeBadge({ change }: { change: KpiTile["change"] }) {
 }
 
 export default function KpiGrid({ kpis }: { kpis: KpiTile[] }) {
+  const seenKeys = new Set<string>();
+  const uniqueKpis = kpis.filter((kpi) => (seenKeys.has(kpi.key) ? false : (seenKeys.add(kpi.key), true)));
   return (
     <div className="grid grid-cols-2 gap-[var(--db-card-gap)]">
-      {kpis.map((kpi) => {
+      {uniqueKpis.map((kpi) => {
         const Icon = KPI_ICONS[kpi.icon];
         return (
           <div
