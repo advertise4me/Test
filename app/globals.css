@@ -30,3 +30,50 @@ body {
 .animate-pulse-fade {
   animation: pulse-fade 1.6s ease-in-out infinite;
 }
+
+/*
+ * Mobile dashboard redesign tokens (Phase 1+).
+ * Scoped to .dashboard-shell, not :root, so the existing chat/connect
+ * screens keep their current (light, zinc) look until later phases
+ * restyle them. Every new dashboard component should reference these
+ * variables instead of hardcoding colors/radii/spacing.
+ */
+.dashboard-shell {
+  color-scheme: dark;
+
+  --db-bg: #121214;
+  --db-surface: #1c1c20;
+  --db-surface-2: #26262c;
+  --db-border: rgba(255, 255, 255, 0.08);
+
+  --db-text-primary: #ffffff;
+  --db-text-secondary: #a1a1aa;
+
+  --db-accent: #8b5cf6;
+  --db-accent-strong: #6d28d9;
+  --db-accent-soft: #ede4ff;
+  --db-accent-ink: #3b1a78;
+
+  --db-success-bg: #bbf7d0;
+  --db-success-text: #15803d;
+  --db-warning-bg: #fde68a;
+  --db-warning-text: #92400e;
+  --db-danger-bg: #fecaca;
+  --db-danger-text: #b91c1c;
+
+  --db-radius-card: 20px;
+  --db-radius-pill: 16px;
+  --db-radius-status: 9999px;
+  --db-gutter: 16px;
+  --db-card-gap: 16px;
+  --db-card-padding: 20px;
+  --db-border-width: 1px;
+
+  --db-font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", var(--font-inter),
+    "Segoe UI", Roboto, sans-serif;
+
+  background: var(--db-bg);
+  color: var(--db-text-primary);
+  font-family: var(--db-font-sans);
+}

@@ -8,14 +8,16 @@ export async function GET() {
     return NextResponse.json({ loggedIn: false, connected: false });
   }
 
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
   const connection = await prisma.metaConnection.findUnique({ where: { userId } });
   if (!connection) {
-    return NextResponse.json({ loggedIn: true, connected: false });
+    return NextResponse.json({ loggedIn: true, connected: false, email: user?.email });
   }
 
   return NextResponse.json({
     loggedIn: true,
     connected: true,
+    email: user?.email,
     adAccountId: connection.adAccountId,
     accountName: connection.accountName,
     currency: connection.currency,
