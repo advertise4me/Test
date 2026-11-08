@@ -4,16 +4,39 @@
 // - we don't have the connected ad account's timezone handy here, and a
 // one-day fuzz at the edges doesn't matter for period-over-period framing.
 
-export type PeriodKey = "today" | "yesterday" | "this_week" | "last_7_days" | "this_month" | "last_month";
+export type PeriodKey =
+  | "today"
+  | "yesterday"
+  | "this_week"
+  | "last_7_days"
+  | "last_30_days"
+  | "last_60_days"
+  | "this_month"
+  | "last_month";
 
-export const PERIOD_OPTIONS: { key: PeriodKey; label: string }[] = [
-  { key: "today", label: "Today" },
-  { key: "yesterday", label: "Yesterday" },
-  { key: "this_week", label: "This week" },
-  { key: "last_7_days", label: "Last 7 days" },
-  { key: "this_month", label: "This month" },
-  { key: "last_month", label: "Last month" },
+/**
+ * The period selector's dropdown groups, in display order - a thin divider
+ * is rendered between each group. PERIOD_OPTIONS (the flat lookup list used
+ * everywhere else) is derived from this, so the two can't drift apart.
+ */
+export const PERIOD_GROUPS: { key: PeriodKey; label: string }[][] = [
+  [
+    { key: "today", label: "Today" },
+    { key: "yesterday", label: "Yesterday" },
+  ],
+  [
+    { key: "last_7_days", label: "Last 7 days" },
+    { key: "last_30_days", label: "Last 30 days" },
+    { key: "last_60_days", label: "Last 60 days" },
+  ],
+  [
+    { key: "this_week", label: "This week" },
+    { key: "this_month", label: "This month" },
+    { key: "last_month", label: "Last month" },
+  ],
 ];
+
+export const PERIOD_OPTIONS: { key: PeriodKey; label: string }[] = PERIOD_GROUPS.flat();
 
 export function isPeriodKey(value: unknown): value is PeriodKey {
   return typeof value === "string" && PERIOD_OPTIONS.some((opt) => opt.key === value);
@@ -89,6 +112,18 @@ export function getPeriodRange(period: PeriodKey, now: Date = new Date()): Perio
       return {
         current: { since: toISODate(addDays(today, -6)), until: toISODate(today) },
         previous: { since: toISODate(addDays(today, -13)), until: toISODate(addDays(today, -7)) },
+      };
+    }
+    case "last_30_days": {
+      return {
+        current: { since: toISODate(addDays(today, -29)), until: toISODate(today) },
+        previous: { since: toISODate(addDays(today, -59)), until: toISODate(addDays(today, -30)) },
+      };
+    }
+    case "last_60_days": {
+      return {
+        current: { since: toISODate(addDays(today, -59)), until: toISODate(today) },
+        previous: { since: toISODate(addDays(today, -119)), until: toISODate(addDays(today, -60)) },
       };
     }
     case "this_month": {

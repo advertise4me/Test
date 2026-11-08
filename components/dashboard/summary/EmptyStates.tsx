@@ -40,6 +40,8 @@ const NO_SPEND_PHRASE: Record<PeriodKey, string> = {
   yesterday: "No ads ran yesterday",
   this_week: "No ads ran this week",
   last_7_days: "No ads ran in the last 7 days",
+  last_30_days: "No ads ran in the last 30 days",
+  last_60_days: "No ads ran in the last 60 days",
   this_month: "No ads ran this month",
   last_month: "No ads ran last month",
 };
