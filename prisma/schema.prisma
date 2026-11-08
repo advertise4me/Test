@@ -153,7 +153,9 @@ model WriteActionLog {
 // Written by app/api/meta/confirm-action/route.ts right after a successful
 // Meta call, additive to WriteActionLog above (which still logs every write
 // action, spend-affecting or not) - not a replacement for it. termsVersion
-// is a placeholder until Phase 5 builds real terms-of-service versioning.
+// is the real current Terms of Service version (lib/legal.ts's
+// getCurrentTermsVersion()) as of Phase 5b - see TermsAcceptance below for
+// the clickwrap that actually records a user's agreement to that version.
 model AdActionApproval {
   id           String   @id @default(cuid())
   userId       String
@@ -165,4 +167,26 @@ model AdActionApproval {
 
   @@index([userId, createdAt])
   @@map("ad_action_approvals")
+}
+
+// One row per terms-acceptance event (Phase 5b clickwrap): a user agreeing
+// to the Terms of Service / Ad Spend & Media Buying Disclaimer at a given
+// content version (see lib/legal.ts). Written on first sign-up, before the
+// user can connect a Meta account (app/api/legal/accept/route.ts), and
+// again whenever the content version changes and the user re-accepts
+// (app/(dashboard)/layout.tsx's version-mismatch gate -> app/accept-terms).
+// This is an append-only audit log, not a toggle - a user's "current"
+// acceptance is whichever row has the latest acceptedAt.
+model TermsAcceptance {
+  id           String   @id @default(cuid())
+  userId       String
+  termsVersion String
+  acceptedAt   DateTime @default(now())
+  // Best-effort only - whatever the request headers happen to carry, not a
+  // verified identity signal.
+  ipAddress    String?
+  userAgent    String?
+
+  @@index([userId, acceptedAt])
+  @@map("terms_acceptances")
 }

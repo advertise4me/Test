@@ -5,6 +5,7 @@ import { decryptToken } from "@/lib/crypto";
 import { startMetaAdsMcpSession } from "@/lib/mcp-client";
 import { consumePendingAction, discardPendingAction, getPendingAction } from "@/lib/pendingActions";
 import { WRITE_TOOL_NAMES, enforceExecutionInvariants, type SpendDetails } from "@/lib/metaWriteGate";
+import { getCurrentTermsVersion } from "@/lib/legal";
 
 // The only place in this app that is allowed to actually call a Meta write
 // tool. app/api/chat/route.ts never calls one directly - it only ever
@@ -159,8 +160,8 @@ export async function POST(req: NextRequest) {
 /**
  * Records one row in ad_action_approvals for a spendAffecting action that
  * just succeeded against the real Meta API - additive to logWriteAction
- * below, not a replacement for it. termsVersion is a hardcoded placeholder
- * ("v0-draft") until Phase 5 builds real terms-of-service versioning.
+ * below, not a replacement for it. termsVersion is the real current Terms
+ * of Service version (Phase 5b), not the old "v0-draft" placeholder.
  * Best-effort: never let a logging failure affect the response the user sees.
  */
 async function logSpendApproval(
@@ -181,7 +182,7 @@ async function logSpendApproval(
         tool,
         objectId,
         budget: spendDetails?.budget,
-        termsVersion: "v0-draft",
+        termsVersion: getCurrentTermsVersion(),
       },
     });
   } catch (error) {

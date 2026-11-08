@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import TermsClickwrap from "@/components/legal/TermsClickwrap";
 
 interface SessionStatus {
   loggedIn: boolean;
@@ -28,6 +29,7 @@ export default function ConnectPage() {
   const [checkingStatus, setCheckingStatus] = useState(true);
   const [pageChoices, setPageChoices] = useState<PageChoice[] | null>(null);
   const [savingPage, setSavingPage] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null);
 
   useEffect(() => {
     fetch("/api/session")
@@ -41,10 +43,19 @@ export default function ConnectPage() {
       })
       .catch(() => setStatus({ loggedIn: false, connected: false }))
       .finally(() => setCheckingStatus(false));
+
+    fetch("/api/legal/status")
+      .then((res) => res.json())
+      .then((data: { accepted: boolean }) => setTermsAccepted(data.accepted))
+      .catch(() => setTermsAccepted(false));
   }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!termsAccepted) {
+      setError("Please agree to the Terms of Service and Ad Spend & Media Buying Disclaimer first.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     setPageChoices(null);
@@ -177,6 +188,18 @@ export default function ConnectPage() {
           </div>
         )}
 
+        {termsAccepted === null && (
+          <div className="mb-6 rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-500 shadow-sm">
+            Loading…
+          </div>
+        )}
+
+        {termsAccepted === false && (
+          <div className="mb-6">
+            <TermsClickwrap onAccepted={() => setTermsAccepted(true)} />
+          </div>
+        )}
+
         <form
           onSubmit={handleSubmit}
           className="space-y-4 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm"
@@ -220,10 +243,16 @@ export default function ConnectPage() {
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
+          {!termsAccepted && (
+            <p className="text-xs text-amber-700">
+              Agree to the Terms of Service and Ad Spend & Media Buying Disclaimer above before connecting.
+            </p>
+          )}
+
           <button
             type="submit"
-            disabled={submitting}
-            className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+            disabled={submitting || !termsAccepted}
+            className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? "Connecting..." : "Connect"}
           </button>
