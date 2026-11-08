@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { decryptToken } from "@/lib/crypto";
 import { startMetaAdsMcpSession } from "@/lib/mcp-client";
 import { consumePendingAction, discardPendingAction, getPendingAction } from "@/lib/pendingActions";
-import { WRITE_TOOL_NAMES, enforceExecutionInvariants } from "@/lib/metaWriteGate";
+import { WRITE_TOOL_NAMES, enforceExecutionInvariants, type SpendDetails } from "@/lib/metaWriteGate";
 
 // The only place in this app that is allowed to actually call a Meta write
 // tool. app/api/chat/route.ts never calls one directly - it only ever
@@ -19,17 +19,20 @@ import { WRITE_TOOL_NAMES, enforceExecutionInvariants } from "@/lib/metaWriteGat
 //      code path (and any future rate limiting on that path) as a normal
 //      chat turn, not a shortcut around it.
 
-function buildSuccessDetail(tool: string, input: Record<string, unknown>, resultText: string): string {
+function extractResultId(resultText: string): string | undefined {
   let parsed: unknown = null;
   try {
     parsed = JSON.parse(resultText);
   } catch {
-    // Not JSON - fall through without an id.
+    // Not JSON.
   }
-  const id =
-    parsed && typeof parsed === "object" && typeof (parsed as Record<string, unknown>).id === "string"
-      ? ((parsed as Record<string, unknown>).id as string)
-      : undefined;
+  return parsed && typeof parsed === "object" && typeof (parsed as Record<string, unknown>).id === "string"
+    ? ((parsed as Record<string, unknown>).id as string)
+    : undefined;
+}
+
+function buildSuccessDetail(tool: string, input: Record<string, unknown>, resultText: string): string {
+  const id = extractResultId(resultText);
   const idSuffix = id ? ` (id: ${id})` : "";
 
   switch (tool) {
@@ -140,6 +143,9 @@ export async function POST(req: NextRequest) {
 
     const detail = buildSuccessDetail(action.tool, enforcedInput, text);
     await logWriteAction(userId, action.tool, action.summary, enforcedInput, "success", text);
+    if (action.spendAffecting) {
+      await logSpendApproval(userId, action.tool, enforcedInput, text, action.spendDetails);
+    }
     return NextResponse.json({ status: "confirmed", detail });
   } catch (error) {
     const message = (error as Error).message || "Something went wrong talking to Meta.";
@@ -147,6 +153,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   } finally {
     await mcpSession.close();
+  }
+}
+
+/**
+ * Records one row in ad_action_approvals for a spendAffecting action that
+ * just succeeded against the real Meta API - additive to logWriteAction
+ * below, not a replacement for it. termsVersion is a hardcoded placeholder
+ * ("v0-draft") until Phase 5 builds real terms-of-service versioning.
+ * Best-effort: never let a logging failure affect the response the user sees.
+ */
+async function logSpendApproval(
+  userId: string,
+  tool: string,
+  input: Record<string, unknown>,
+  resultText: string,
+  spendDetails: SpendDetails | undefined,
+): Promise<void> {
+  try {
+    const objectId =
+      extractResultId(resultText) ??
+      (typeof input.campaign_id === "string" ? input.campaign_id : undefined) ??
+      (typeof input.ad_set_id === "string" ? input.ad_set_id : undefined);
+    await prisma.adActionApproval.create({
+      data: {
+        userId,
+        tool,
+        objectId,
+        budget: spendDetails?.budget,
+        termsVersion: "v0-draft",
+      },
+    });
+  } catch (error) {
+    console.error("failed to write ad_action_approvals row", error);
   }
 }
 

@@ -73,3 +73,23 @@ model WriteActionLog {
 
   @@index([userId, createdAt])
 }
+
+// Spend-approval log (Phase 3): one row per user approval of a
+// spendAffecting write action - a create or budget change on a
+// campaign/ad set (see lib/metaWriteGate.ts's spendAffecting flag).
+// Written by app/api/meta/confirm-action/route.ts right after a successful
+// Meta call, additive to WriteActionLog above (which still logs every write
+// action, spend-affecting or not) - not a replacement for it. termsVersion
+// is a placeholder until Phase 5 builds real terms-of-service versioning.
+model AdActionApproval {
+  id           String   @id @default(cuid())
+  userId       String
+  tool         String
+  objectId     String?
+  budget       String?
+  termsVersion String
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("ad_action_approvals")
+}

@@ -1,5 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import type { SpendDetails } from "@/lib/metaWriteGate";
 
 // Server-side store for Meta write-tool calls that are awaiting explicit UI
 // confirmation (see app/api/chat/route.ts, which creates these instead of
@@ -22,6 +23,8 @@ export interface PendingAction {
   input: Record<string, unknown>;
   summary: string;
   createdAt: number;
+  spendAffecting: boolean;
+  spendDetails?: SpendDetails;
 }
 
 const TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -41,9 +44,20 @@ export function createPendingAction(
   tool: string,
   input: Record<string, unknown>,
   summary: string,
+  spendAffecting: boolean,
+  spendDetails?: SpendDetails,
 ): PendingAction {
   sweepExpired();
-  const action: PendingAction = { id: randomUUID(), userId, tool, input, summary, createdAt: Date.now() };
+  const action: PendingAction = {
+    id: randomUUID(),
+    userId,
+    tool,
+    input,
+    summary,
+    createdAt: Date.now(),
+    spendAffecting,
+    spendDetails,
+  };
   store.set(action.id, action);
   return action;
 }

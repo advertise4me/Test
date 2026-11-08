@@ -24,8 +24,25 @@ export function isWriteTool(name: string): boolean {
 
 type Input = Record<string, unknown>;
 
+/**
+ * Shown verbatim in the spend-approval sheet (ConfirmActionCard) for a
+ * spendAffecting action - see the "Specifically for any action that
+ * creates, edits, launches, or changes the budget of a campaign/ad set"
+ * requirement. objectName falls back to "Campaign <id>" / "Ad set <id>"
+ * for update_campaign/update_ad_set, since those tools only ever receive
+ * an id, never a name - the model would have to have looked the name up
+ * in an earlier read-tool call this turn, and that isn't plumbed through
+ * to this layer. Good enough for this phase; not blocking on it.
+ */
+export interface SpendDetails {
+  objectName: string;
+  budget: string;
+  dateRange: string;
+}
+
 export type PrepareWriteActionResult =
-  | { ok: true; sanitizedInput: Input; summary: string }
+  | { ok: true; sanitizedInput: Input; summary: string; spendAffecting: false }
+  | { ok: true; sanitizedInput: Input; summary: string; spendAffecting: true; spendDetails: SpendDetails }
   | { ok: false; reason: string };
 
 function formatMoney(amount: unknown, currency?: string): string | null {
@@ -40,6 +57,18 @@ function budgetPhrase(input: Input, currency?: string): string | null {
   const lifetime = formatMoney(input.lifetime_budget, currency);
   if (lifetime) return `${lifetime} lifetime`;
   return null;
+}
+
+function formatDate(iso: string): string | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** Only create_ad_set's schema has an end_time field - nothing else here carries a date range at all. */
+function dateRangePhrase(input: Input): string {
+  const endTime = typeof input.end_time === "string" ? formatDate(input.end_time) : null;
+  return endTime ? `Starts today, runs through ${endTime}` : "Starts today, no end date (runs until you pause it)";
 }
 
 /**
@@ -61,6 +90,12 @@ export function prepareWriteAction(tool: string, input: Input, currency?: string
         ok: true,
         sanitizedInput: { ...input, status: "PAUSED" },
         summary: `Create new campaign "${String(input.name)}" — objective: ${String(input.objective)}, ${budget}, status: PAUSED`,
+        spendAffecting: true,
+        spendDetails: {
+          objectName: String(input.name),
+          budget: budgetPhrase(input, currency) ?? "No budget set here — the ad set(s) under it will set their own",
+          dateRange: dateRangePhrase(input),
+        },
       };
     }
 
@@ -84,9 +119,18 @@ export function prepareWriteAction(tool: string, input: Input, currency?: string
         ok: true,
         sanitizedInput: { ...input, status: "PAUSED" },
         summary: `Create new ad set "${String(input.name)}" in campaign ${String(input.campaign_id)} — goal: ${String(input.optimization_goal)}, ${targeting}, ${budget}, status: PAUSED`,
+        spendAffecting: true,
+        spendDetails: {
+          objectName: `${String(input.name)} (campaign ${String(input.campaign_id)})`,
+          budget: budgetPhrase(input, currency) ?? "No budget set here — uses the campaign's budget",
+          dateRange: dateRangePhrase(input),
+        },
       };
     }
 
+    // Creative and ad creation don't themselves set a budget or create/edit a
+    // campaign/ad set - the spend decision already happened when the ad set's
+    // budget was set. Keep these on the simpler Confirm/Cancel card.
     case "create_ad_creative": {
       const media = input.video_id ? `video ${String(input.video_id)}` : `image ${String(input.image_hash)}`;
       const cta = input.call_to_action ? `, button: ${String(input.call_to_action)}` : "";
@@ -96,6 +140,7 @@ export function prepareWriteAction(tool: string, input: Input, currency?: string
         summary:
           `Create ad creative using ${media} — headline: "${input.headline ? String(input.headline) : "(none)"}", ` +
           `text: "${String(input.message)}", link: ${String(input.link)}${cta}`,
+        spendAffecting: false,
       };
     }
 
@@ -104,6 +149,7 @@ export function prepareWriteAction(tool: string, input: Input, currency?: string
         ok: true,
         sanitizedInput: { ...input, status: "PAUSED" },
         summary: `Create new ad "${String(input.name)}" in ad set ${String(input.ad_set_id)} using creative ${String(input.creative_id)}, status: PAUSED`,
+        spendAffecting: false,
       };
     }
 
@@ -135,10 +181,25 @@ export function prepareWriteAction(tool: string, input: Input, currency?: string
       const note = requestedActive
         ? " (note: the requested change to ACTIVE was dropped - resuming isn't supported through this confirmation flow)"
         : "";
+      const summary = `Update ${label} ${String(input[idField])}: ${parts.join(", ")}${note}`;
+
+      // A budget change is spend-affecting; a pure pause isn't (it only ever
+      // reduces spend through this flow - resuming is rejected above) so it
+      // stays on the simpler Confirm/Cancel card.
+      const newBudget = daily ?? lifetime;
+      if (!newBudget) {
+        return { ok: true, sanitizedInput: sanitized, summary, spendAffecting: false };
+      }
       return {
         ok: true,
         sanitizedInput: sanitized,
-        summary: `Update ${label} ${String(input[idField])}: ${parts.join(", ")}${note}`,
+        summary,
+        spendAffecting: true,
+        spendDetails: {
+          objectName: `${label[0].toUpperCase()}${label.slice(1)} ${String(input[idField])}`,
+          budget: daily ? `${daily}/day` : `${lifetime} lifetime`,
+          dateRange: "Ongoing — editing an existing schedule",
+        },
       };
     }
 
@@ -155,6 +216,7 @@ export function prepareWriteAction(tool: string, input: Input, currency?: string
         ok: true,
         sanitizedInput: { ...input },
         summary: `Pause ad ${String(input.ad_id)}`,
+        spendAffecting: false,
       };
     }
 

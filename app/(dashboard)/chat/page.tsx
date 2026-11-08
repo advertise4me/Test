@@ -2,8 +2,10 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Paperclip, LogOut, Send } from "lucide-react";
 import { parseAssistantContent } from "@/lib/parseAssistantContent";
 import { AUTO_SUMMARY_PROMPT } from "@/lib/autoSummary";
+import { dashboardIconStrokeWidth, dashboardType } from "@/lib/theme/dashboard";
 import StepsWidget from "@/components/StepsWidget";
 import AssistantMarkdown from "@/components/AssistantMarkdown";
 import LoadingIndicator from "@/components/LoadingIndicator";
@@ -171,12 +173,17 @@ function ChatPageInner() {
   const inputDisabled = sending || uploading || hasUnresolvedAction;
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-6">
-      <header className="mb-4 flex items-center justify-between border-b border-zinc-200 pb-4">
+    <main className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col">
+      <header
+        className="sticky top-0 z-10 flex items-center justify-between px-[var(--db-gutter)] py-4"
+        style={{ background: "var(--db-bg)", borderBottom: "var(--db-border-width) solid var(--db-border)" }}
+      >
         <div>
-          <h1 className="text-lg font-semibold">Ads Chat</h1>
+          <h1 className={dashboardType.cardTitle} style={{ color: "var(--db-text-primary)" }}>
+            Recommendations
+          </h1>
           {status?.connected && (
-            <p className="text-xs text-zinc-500">
+            <p className="text-[12px]" style={{ color: "var(--db-text-secondary)" }}>
               {status.accountName ?? status.adAccountId}
               {status.currency ? ` · ${status.currency}` : ""}
             </p>
@@ -184,15 +191,26 @@ function ChatPageInner() {
         </div>
         <button
           onClick={handleDisconnect}
-          className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+          className="flex items-center gap-1.5 rounded-[var(--db-radius-pill)] px-3 py-1.5 text-xs font-medium"
+          style={{
+            border: "var(--db-border-width) solid var(--db-border)",
+            color: "var(--db-text-secondary)",
+          }}
         >
+          <LogOut size={14} strokeWidth={dashboardIconStrokeWidth} />
           Disconnect
         </button>
       </header>
 
-      <div className="flex-1 space-y-4 overflow-y-auto pb-4">
+      <div className="flex-1 space-y-4 px-[var(--db-gutter)] py-4">
         {history.length === 0 && (
-          <div className="rounded-lg border border-dashed border-zinc-300 p-6 text-sm text-zinc-500">
+          <div
+            className="rounded-[var(--db-radius-card)] p-[var(--db-card-padding)] text-sm"
+            style={{
+              border: "var(--db-border-width) dashed var(--db-border)",
+              color: "var(--db-text-secondary)",
+            }}
+          >
             Ask things like &ldquo;How did spend and ROAS trend over the last 30 days?&rdquo; or
             &ldquo;Build me a new ad for my spring sale&rdquo; - attach an image or video with the
             paperclip button when asked.
@@ -208,7 +226,10 @@ function ChatPageInner() {
             }
             return (
               <div key={i} className="flex justify-end">
-                <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-zinc-900 px-4 py-2 text-sm text-white">
+                <div
+                  className="max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-2 text-sm text-white"
+                  style={{ background: "var(--db-accent)" }}
+                >
                   {turn.content}
                 </div>
               </div>
@@ -221,7 +242,10 @@ function ChatPageInner() {
           return (
             <div key={i} className="flex justify-start">
               <div className="max-w-[85%] space-y-2">
-                <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-2">
+                <div
+                  className="rounded-2xl px-4 py-2"
+                  style={{ background: "var(--db-surface)", border: "var(--db-border-width) solid var(--db-border)" }}
+                >
                   <AssistantMarkdown content={parsed.text} />
                 </div>
                 {parsed.steps && <StepsWidget spec={parsed.steps} />}
@@ -244,7 +268,11 @@ function ChatPageInner() {
                           key={j}
                           type="button"
                           onClick={() => sendMessage(suggestion)}
-                          className="rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs text-zinc-700 hover:bg-zinc-100"
+                          className="rounded-[var(--db-radius-pill)] px-3 py-1 text-xs"
+                          style={{
+                            border: "var(--db-border-width) solid var(--db-border)",
+                            color: "var(--db-text-primary)",
+                          }}
                         >
                           {suggestion}
                         </button>
@@ -257,14 +285,24 @@ function ChatPageInner() {
         })}
         {uploading && (
           <div className="flex justify-end">
-            <div className="max-w-[85%] rounded-2xl bg-zinc-700 px-4 py-2 text-sm text-white">
+            <div
+              className="max-w-[85%] rounded-2xl px-4 py-2 text-sm text-white"
+              style={{ background: "var(--db-accent-strong)" }}
+            >
               Uploading…
             </div>
           </div>
         )}
         {sending && (
           <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-500">
+            <div
+              className="max-w-[85%] rounded-2xl px-4 py-2 text-sm"
+              style={{
+                background: "var(--db-surface)",
+                border: "var(--db-border-width) solid var(--db-border)",
+                color: "var(--db-text-secondary)",
+              }}
+            >
               <LoadingIndicator />
             </div>
           </div>
@@ -272,43 +310,66 @@ function ChatPageInner() {
         <div ref={bottomRef} />
       </div>
 
-      {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
-      {hasUnresolvedAction && (
-        <p className="mb-2 text-xs text-amber-700">Confirm or cancel the pending action above to keep chatting.</p>
-      )}
+      <div
+        className="sticky bottom-0 z-10 px-[var(--db-gutter)] pt-3"
+        style={{ background: "var(--db-bg)", paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+      >
+        {error && (
+          <p className="mb-2 text-sm" style={{ color: "var(--db-danger-text)" }}>
+            {error}
+          </p>
+        )}
+        {hasUnresolvedAction && (
+          <p className="mb-2 text-xs" style={{ color: "var(--db-warning-text)" }}>
+            Confirm or cancel the pending action above to keep chatting.
+          </p>
+        )}
 
-      <form onSubmit={handleFormSubmit} className="flex gap-2 border-t border-zinc-200 pt-4">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,video/*"
-          onChange={handleFileSelected}
-          className="hidden"
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={inputDisabled}
-          title="Attach an image or video"
-          className="shrink-0 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 disabled:opacity-50"
-        >
-          📎
-        </button>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          disabled={inputDisabled}
-          placeholder="Ask about campaigns, spend, CTR, ROAS..."
-          className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:opacity-50"
-        />
-        <button
-          type="submit"
-          disabled={inputDisabled || !input.trim()}
-          className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
-        >
-          Send
-        </button>
-      </form>
+        <form onSubmit={handleFormSubmit} className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*"
+            onChange={handleFileSelected}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={inputDisabled}
+            title="Attach an image or video"
+            className="flex shrink-0 items-center justify-center rounded-full p-2.5 disabled:opacity-50"
+            style={{
+              background: "var(--db-surface-2)",
+              color: "var(--db-text-secondary)",
+              border: "var(--db-border-width) solid var(--db-border)",
+            }}
+          >
+            <Paperclip size={18} strokeWidth={dashboardIconStrokeWidth} />
+          </button>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={inputDisabled}
+            placeholder="Ask about campaigns, spend, CTR, ROAS..."
+            className="flex-1 rounded-[var(--db-radius-pill)] px-4 py-2.5 text-sm focus:outline-none disabled:opacity-50"
+            style={{
+              background: "var(--db-surface)",
+              border: "var(--db-border-width) solid var(--db-border)",
+              color: "var(--db-text-primary)",
+            }}
+          />
+          <button
+            type="submit"
+            disabled={inputDisabled || !input.trim()}
+            aria-label="Send"
+            className="flex shrink-0 items-center justify-center rounded-full p-2.5 text-white disabled:opacity-50"
+            style={{ background: "var(--db-accent)" }}
+          >
+            <Send size={18} strokeWidth={dashboardIconStrokeWidth} />
+          </button>
+        </form>
+      </div>
     </main>
   );
 }

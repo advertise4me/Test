@@ -3,10 +3,18 @@ export interface StepsSpec {
   steps: string[];
 }
 
+export interface ConfirmActionSpendDetails {
+  objectName: string;
+  budget: string;
+  dateRange: string;
+}
+
 export interface ConfirmAction {
   id: string;
   tool: string;
   summary: string;
+  spendAffecting: boolean;
+  spendDetails?: ConfirmActionSpendDetails;
 }
 
 export interface ParsedAssistantContent {
@@ -34,10 +42,19 @@ function isStepsSpec(value: unknown): value is StepsSpec {
   return isStringArray(v.steps) && v.steps.length > 0;
 }
 
+function isConfirmActionSpendDetails(value: unknown): value is ConfirmActionSpendDetails {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.objectName === "string" && typeof v.budget === "string" && typeof v.dateRange === "string";
+}
+
 function isConfirmAction(value: unknown): value is ConfirmAction {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
-  return typeof v.id === "string" && typeof v.tool === "string" && typeof v.summary === "string";
+  if (typeof v.id !== "string" || typeof v.tool !== "string" || typeof v.summary !== "string") return false;
+  if (typeof v.spendAffecting !== "boolean") return false;
+  if (v.spendDetails !== undefined && !isConfirmActionSpendDetails(v.spendDetails)) return false;
+  return true;
 }
 
 function isConfirmActionArray(value: unknown): value is ConfirmAction[] {

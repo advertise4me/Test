@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { decryptToken } from "@/lib/crypto";
 import { startMetaAdsMcpSession } from "@/lib/mcp-client";
 import { AUTO_SUMMARY_PROMPT } from "@/lib/autoSummary";
-import { isWriteTool, prepareWriteAction } from "@/lib/metaWriteGate";
+import { isWriteTool, prepareWriteAction, type SpendDetails } from "@/lib/metaWriteGate";
 import { createPendingAction } from "@/lib/pendingActions";
 
 // See the claude-api skill for current model IDs - claude-opus-5 is the
@@ -182,7 +182,13 @@ export async function POST(req: NextRequest) {
     ];
 
     let finalText = "";
-    const pendingActionsThisTurn: { id: string; tool: string; summary: string }[] = [];
+    const pendingActionsThisTurn: {
+      id: string;
+      tool: string;
+      summary: string;
+      spendAffecting: boolean;
+      spendDetails?: SpendDetails;
+    }[] = [];
 
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
       const response = await anthropic.messages.create({
@@ -220,8 +226,21 @@ export async function POST(req: NextRequest) {
               });
               continue;
             }
-            const pending = createPendingAction(userId, block.name, prepared.sanitizedInput, prepared.summary);
-            pendingActionsThisTurn.push({ id: pending.id, tool: pending.tool, summary: pending.summary });
+            const pending = createPendingAction(
+              userId,
+              block.name,
+              prepared.sanitizedInput,
+              prepared.summary,
+              prepared.spendAffecting,
+              prepared.spendAffecting ? prepared.spendDetails : undefined,
+            );
+            pendingActionsThisTurn.push({
+              id: pending.id,
+              tool: pending.tool,
+              summary: pending.summary,
+              spendAffecting: pending.spendAffecting,
+              spendDetails: pending.spendDetails,
+            });
             toolResults.push({
               type: "tool_result",
               tool_use_id: block.id,
