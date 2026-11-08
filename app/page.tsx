@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import TermsClickwrap from "@/components/legal/TermsClickwrap";
+import BrandMark from "@/components/BrandMark";
+import { Field, inputClassName, inputStyle } from "@/components/dashboard/settings/Field";
 
 interface SessionStatus {
   loggedIn: boolean;
@@ -117,27 +119,36 @@ export default function ConnectPage() {
   if (checkingStatus) return null;
 
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-16">
+    <main className="dashboard-shell flex flex-1 items-center justify-center px-4 py-16">
       <div className="w-full max-w-md">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Ads Chat</h1>
-            <p className="mt-2 text-sm text-zinc-600">
+            <BrandMark />
+            <h1 className="mt-3 text-[22px] font-bold" style={{ color: "var(--db-text-primary)" }}>
+              Ads Chat
+            </h1>
+            <p className="mt-1 text-[14px]" style={{ color: "var(--db-text-secondary)" }}>
               Connect a Meta ad account, then chat with Claude about its performance.
             </p>
           </div>
           <button
             onClick={handleLogout}
-            className="shrink-0 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+            className="shrink-0 rounded-[var(--db-radius-pill)] px-3 py-1.5 text-[12px] font-medium"
+            style={{ border: "var(--db-border-width) solid var(--db-border)", color: "var(--db-text-primary)" }}
           >
             Log out
           </button>
         </div>
 
         {pageChoices && (
-          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-            <p className="font-medium">Which Facebook Page should ads be posted as?</p>
-            <p className="mt-1 text-xs text-blue-800">
+          <div
+            className="mb-6 rounded-[var(--db-radius-card)] p-[var(--db-card-padding)] text-[14px]"
+            style={{ background: "var(--db-surface)", border: "var(--db-border-width) solid var(--db-border)" }}
+          >
+            <p className="font-medium" style={{ color: "var(--db-text-primary)" }}>
+              Which Facebook Page should ads be posted as?
+            </p>
+            <p className="mt-1 text-[12px]" style={{ color: "var(--db-text-secondary)" }}>
               Your token manages more than one Page - pick the one tied to this ad account.
             </p>
             <div className="mt-3 flex flex-col gap-2">
@@ -146,7 +157,8 @@ export default function ConnectPage() {
                   key={page.id}
                   onClick={() => handleChoosePage(page)}
                   disabled={savingPage}
-                  className="rounded-md border border-blue-300 bg-white px-3 py-2 text-left text-sm hover:bg-blue-100 disabled:opacity-50"
+                  className="rounded-[var(--db-radius-pill)] px-3 py-2 text-left text-[14px] disabled:opacity-50"
+                  style={{ background: "var(--db-surface-2)", color: "var(--db-text-primary)" }}
                 >
                   {page.name}
                 </button>
@@ -156,17 +168,20 @@ export default function ConnectPage() {
         )}
 
         {!pageChoices && status?.connected && (
-          <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-            <p className="font-medium">
+          <div
+            className="mb-6 rounded-[var(--db-radius-card)] p-[var(--db-card-padding)] text-[14px]"
+            style={{ background: "var(--db-surface)", border: "var(--db-border-width) solid var(--db-success-text)" }}
+          >
+            <p className="font-medium" style={{ color: "var(--db-text-primary)" }}>
               Connected to {status.accountName ?? status.adAccountId}
               {status.currency ? ` (${status.currency})` : ""}
             </p>
             {status.facebookPageName ? (
-              <p className="mt-1 text-xs text-emerald-800">
+              <p className="mt-1 text-[12px]" style={{ color: "var(--db-text-secondary)" }}>
                 Posting ads as Page: {status.facebookPageName}
               </p>
             ) : (
-              <p className="mt-1 text-xs text-amber-700">
+              <p className="mt-1 text-[12px]" style={{ color: "var(--db-warning-text)" }}>
                 No Facebook Page linked yet - ad creatives can&apos;t be created until one is. Make
                 sure your token has the <code>pages_show_list</code> permission and reconnect.
               </p>
@@ -174,13 +189,15 @@ export default function ConnectPage() {
             <div className="mt-3 flex gap-2">
               <button
                 onClick={() => router.push("/chat")}
-                className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                className="rounded-[var(--db-radius-pill)] px-3 py-1.5 text-[12px] font-medium text-white"
+                style={{ background: "var(--db-accent)" }}
               >
                 Go to chat
               </button>
               <button
                 onClick={handleDisconnect}
-                className="rounded-md border border-emerald-300 px-3 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100"
+                className="rounded-[var(--db-radius-pill)] px-3 py-1.5 text-[12px] font-medium"
+                style={{ border: "var(--db-border-width) solid var(--db-border)", color: "var(--db-text-primary)" }}
               >
                 Disconnect
               </button>
@@ -189,7 +206,10 @@ export default function ConnectPage() {
         )}
 
         {termsAccepted === null && (
-          <div className="mb-6 rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-500 shadow-sm">
+          <div
+            className="mb-6 rounded-[var(--db-radius-card)] p-[var(--db-card-padding)] text-[14px]"
+            style={{ background: "var(--db-surface)", border: "var(--db-border-width) solid var(--db-border)", color: "var(--db-text-secondary)" }}
+          >
             Loading…
           </div>
         )}
@@ -202,12 +222,10 @@ export default function ConnectPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm"
+          className="space-y-4 rounded-[var(--db-radius-card)] p-[var(--db-card-padding)]"
+          style={{ background: "var(--db-surface)", border: "var(--db-border-width) solid var(--db-border)" }}
         >
-          <div>
-            <label htmlFor="accessToken" className="block text-sm font-medium text-zinc-700">
-              Meta access token
-            </label>
+          <Field label="Meta access token">
             <input
               id="accessToken"
               type="password"
@@ -216,20 +234,18 @@ export default function ConnectPage() {
               value={accessToken}
               onChange={(e) => setAccessToken(e.target.value)}
               placeholder="EAAG..."
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+              className={inputClassName}
+              style={inputStyle}
             />
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1.5 text-[12px] leading-relaxed" style={{ color: "var(--db-text-secondary)" }}>
               A user or system-user access token with <code>ads_read</code>,{" "}
               <code>ads_management</code> (to create or edit campaigns), and{" "}
               <code>pages_show_list</code> (to post ads as your Page) permissions on this
               account. A long-lived token is recommended so it doesn&apos;t expire mid-session.
             </p>
-          </div>
+          </Field>
 
-          <div>
-            <label htmlFor="adAccountId" className="block text-sm font-medium text-zinc-700">
-              Ad account ID
-            </label>
+          <Field label="Ad account ID">
             <input
               id="adAccountId"
               type="text"
@@ -237,14 +253,19 @@ export default function ConnectPage() {
               value={adAccountId}
               onChange={(e) => setAdAccountId(e.target.value)}
               placeholder="act_1234567890 or 1234567890"
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+              className={inputClassName}
+              style={inputStyle}
             />
-          </div>
+          </Field>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && (
+            <p className="text-[13px]" style={{ color: "var(--db-danger-text)" }}>
+              {error}
+            </p>
+          )}
 
           {!termsAccepted && (
-            <p className="text-xs text-amber-700">
+            <p className="text-[12px]" style={{ color: "var(--db-warning-text)" }}>
               Agree to the Terms of Service and Ad Spend & Media Buying Disclaimer above before connecting.
             </p>
           )}
@@ -252,14 +273,20 @@ export default function ConnectPage() {
           <button
             type="submit"
             disabled={submitting || !termsAccepted}
-            className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-[var(--db-radius-pill)] px-4 py-2.5 text-[15px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ background: "var(--db-accent)" }}
           >
             {submitting ? "Connecting..." : "Connect"}
           </button>
         </form>
 
-        <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
-          <p className="font-medium">How this works</p>
+        <div
+          className="mt-6 rounded-[var(--db-radius-card)] p-[var(--db-card-padding)] text-[12px]"
+          style={{ background: "var(--db-surface)", border: "var(--db-border-width) solid var(--db-border)", color: "var(--db-text-secondary)" }}
+        >
+          <p className="font-medium" style={{ color: "var(--db-text-primary)" }}>
+            How this works
+          </p>
           <ul className="mt-1 list-inside list-disc space-y-1">
             <li>
               Your account is stored in a database; your Meta access token is encrypted before
@@ -272,7 +299,7 @@ export default function ConnectPage() {
                 href="https://developers.facebook.com/tools/explorer/"
                 target="_blank"
                 rel="noreferrer"
-                className="underline"
+                style={{ color: "var(--db-accent)" }}
               >
                 Graph API Explorer
               </a>{" "}

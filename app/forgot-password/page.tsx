@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Field, inputClassName, inputStyle } from "@/components/dashboard/settings/Field";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -33,30 +34,37 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-16">
+    <main className="dashboard-shell flex flex-1 items-center justify-center px-4 py-16">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Reset your password</h1>
+          <h1 className="text-[22px] font-bold" style={{ color: "var(--db-text-primary)" }}>
+            Reset your password
+          </h1>
         </div>
 
         {sent ? (
-          <div className="rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm">
-            <p className="text-sm text-zinc-700">
+          <div
+            className="rounded-[var(--db-radius-card)] p-[var(--db-card-padding)] text-center"
+            style={{ background: "var(--db-surface)", border: "var(--db-border-width) solid var(--db-border)" }}
+          >
+            <p className="text-[14px]" style={{ color: "var(--db-text-primary)" }}>
               If an account exists for {email}, we&apos;ve sent a link to reset the password. Check your inbox.
             </p>
-            <Link href="/login" className="mt-4 inline-block text-sm font-medium text-zinc-900 underline">
+            <Link
+              href="/login"
+              className="mt-4 inline-block text-[14px] font-medium"
+              style={{ color: "var(--db-accent)" }}
+            >
               Back to log in
             </Link>
           </div>
         ) : (
           <form
             onSubmit={handleSubmit}
-            className="space-y-4 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm"
+            className="space-y-4 rounded-[var(--db-radius-card)] p-[var(--db-card-padding)]"
+            style={{ background: "var(--db-surface)", border: "var(--db-border-width) solid var(--db-border)" }}
           >
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-zinc-700">
-                Email
-              </label>
+            <Field label="Email">
               <input
                 id="email"
                 type="email"
@@ -64,22 +72,28 @@ export default function ForgotPasswordPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                className={inputClassName}
+                style={inputStyle}
               />
-            </div>
+            </Field>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && (
+              <p className="text-[13px]" style={{ color: "var(--db-danger-text)" }}>
+                {error}
+              </p>
+            )}
 
             <button
               type="submit"
               disabled={submitting}
-              className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+              className="w-full rounded-[var(--db-radius-pill)] px-4 py-2.5 text-[15px] font-medium text-white disabled:opacity-50"
+              style={{ background: "var(--db-accent)" }}
             >
               {submitting ? "Sending…" : "Send reset link"}
             </button>
 
-            <p className="text-center text-sm text-zinc-600">
-              <Link href="/login" className="font-medium text-zinc-900 underline">
+            <p className="text-center text-[14px]">
+              <Link href="/login" className="font-medium" style={{ color: "var(--db-text-primary)" }}>
                 Back to log in
               </Link>
             </p>

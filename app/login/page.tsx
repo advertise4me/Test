@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import BrandMark from "@/components/BrandMark";
+import { Field, inputClassName, inputStyle } from "@/components/dashboard/settings/Field";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,23 +38,24 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-16">
+    <main className="dashboard-shell flex flex-1 items-center justify-center px-4 py-16">
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Ads Chat</h1>
-          <p className="mt-2 text-sm text-zinc-600">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <BrandMark align="center" />
+          <h1 className="mt-4 text-[22px] font-bold" style={{ color: "var(--db-text-primary)" }}>
+            Ads Chat
+          </h1>
+          <p className="mt-1 text-[14px]" style={{ color: "var(--db-text-secondary)" }}>
             {mode === "login" ? "Log in to your account" : "Create an account"}
           </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm"
+          className="space-y-4 rounded-[var(--db-radius-card)] p-[var(--db-card-padding)]"
+          style={{ background: "var(--db-surface)", border: "var(--db-border-width) solid var(--db-border)" }}
         >
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-zinc-700">
-              Email
-            </label>
+          <Field label="Email">
             <input
               id="email"
               type="email"
@@ -60,14 +63,12 @@ export default function LoginPage() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+              className={inputClassName}
+              style={inputStyle}
             />
-          </div>
+          </Field>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-zinc-700">
-              Password
-            </label>
+          <Field label="Password">
             <input
               id="password"
               type="password"
@@ -76,39 +77,48 @@ export default function LoginPage() {
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+              className={inputClassName}
+              style={inputStyle}
             />
             {mode === "signup" && (
-              <p className="mt-1 text-xs text-zinc-500">At least 8 characters.</p>
+              <p className="mt-1.5 text-[12px]" style={{ color: "var(--db-text-secondary)" }}>
+                At least 8 characters.
+              </p>
             )}
             {mode === "login" && (
-              <p className="mt-1 text-right text-xs">
-                <Link href="/forgot-password" className="text-zinc-500 underline">
+              <p className="mt-1.5 text-right text-[12px]">
+                <Link href="/forgot-password" style={{ color: "var(--db-text-secondary)" }}>
                   Forgot password?
                 </Link>
               </p>
             )}
-          </div>
+          </Field>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && (
+            <p className="text-[13px]" style={{ color: "var(--db-danger-text)" }}>
+              {error}
+            </p>
+          )}
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+            className="w-full rounded-[var(--db-radius-pill)] px-4 py-2.5 text-[15px] font-medium text-white disabled:opacity-50"
+            style={{ background: "var(--db-accent)" }}
           >
             {submitting ? "Please wait..." : mode === "login" ? "Log in" : "Sign up"}
           </button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-zinc-600">
+        <p className="mt-4 text-center text-[14px]" style={{ color: "var(--db-text-secondary)" }}>
           {mode === "login" ? (
             <>
               No account?{" "}
               <button
                 type="button"
                 onClick={() => setMode("signup")}
-                className="font-medium text-zinc-900 underline"
+                className="font-medium"
+                style={{ color: "var(--db-text-primary)" }}
               >
                 Sign up
               </button>
@@ -119,7 +129,8 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setMode("login")}
-                className="font-medium text-zinc-900 underline"
+                className="font-medium"
+                style={{ color: "var(--db-text-primary)" }}
               >
                 Log in
               </button>

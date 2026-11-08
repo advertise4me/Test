@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Field, inputClassName, inputStyle } from "@/components/dashboard/settings/Field";
 
 export default function ResetPasswordPage() {
   return (
@@ -52,10 +53,10 @@ function ResetPasswordPageInner() {
 
   if (!token) {
     return (
-      <main className="flex flex-1 items-center justify-center px-4 py-16">
-        <p className="text-sm text-zinc-600">
+      <main className="dashboard-shell flex flex-1 items-center justify-center px-4 py-16">
+        <p className="text-[14px]" style={{ color: "var(--db-text-secondary)" }}>
           This link is missing a reset token.{" "}
-          <Link href="/forgot-password" className="font-medium text-zinc-900 underline">
+          <Link href="/forgot-password" className="font-medium" style={{ color: "var(--db-text-primary)" }}>
             Request a new one
           </Link>
           .
@@ -65,25 +66,30 @@ function ResetPasswordPageInner() {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-16">
+    <main className="dashboard-shell flex flex-1 items-center justify-center px-4 py-16">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Choose a new password</h1>
+          <h1 className="text-[22px] font-bold" style={{ color: "var(--db-text-primary)" }}>
+            Choose a new password
+          </h1>
         </div>
 
         {done ? (
-          <div className="rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm">
-            <p className="text-sm text-zinc-700">Password changed - redirecting you to log in…</p>
+          <div
+            className="rounded-[var(--db-radius-card)] p-[var(--db-card-padding)] text-center"
+            style={{ background: "var(--db-surface)", border: "var(--db-border-width) solid var(--db-border)" }}
+          >
+            <p className="text-[14px]" style={{ color: "var(--db-text-primary)" }}>
+              Password changed - redirecting you to log in…
+            </p>
           </div>
         ) : (
           <form
             onSubmit={handleSubmit}
-            className="space-y-4 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm"
+            className="space-y-4 rounded-[var(--db-radius-card)] p-[var(--db-card-padding)]"
+            style={{ background: "var(--db-surface)", border: "var(--db-border-width) solid var(--db-border)" }}
           >
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-zinc-700">
-                New password
-              </label>
+            <Field label="New password">
               <input
                 id="password"
                 type="password"
@@ -92,14 +98,14 @@ function ResetPasswordPageInner() {
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                className={inputClassName}
+                style={inputStyle}
               />
-              <p className="mt-1 text-xs text-zinc-500">At least 8 characters.</p>
-            </div>
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-zinc-700">
-                Confirm new password
-              </label>
+              <p className="mt-1.5 text-[12px]" style={{ color: "var(--db-text-secondary)" }}>
+                At least 8 characters.
+              </p>
+            </Field>
+            <Field label="Confirm new password">
               <input
                 id="confirmPassword"
                 type="password"
@@ -108,16 +114,22 @@ function ResetPasswordPageInner() {
                 autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                className={inputClassName}
+                style={inputStyle}
               />
-            </div>
+            </Field>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && (
+              <p className="text-[13px]" style={{ color: "var(--db-danger-text)" }}>
+                {error}
+              </p>
+            )}
 
             <button
               type="submit"
               disabled={submitting}
-              className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+              className="w-full rounded-[var(--db-radius-pill)] px-4 py-2.5 text-[15px] font-medium text-white disabled:opacity-50"
+              style={{ background: "var(--db-accent)" }}
             >
               {submitting ? "Saving…" : "Reset password"}
             </button>

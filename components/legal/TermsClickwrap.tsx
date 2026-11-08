@@ -31,17 +31,21 @@ export default function TermsClickwrap({ onAccepted }: { onAccepted: () => void 
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-      <label className="flex items-start gap-2 text-sm text-zinc-700">
+    <div
+      className="space-y-3 rounded-[var(--db-radius-card)] p-[var(--db-card-padding)]"
+      style={{ background: "var(--db-surface)", border: "var(--db-border-width) solid var(--db-border)" }}
+    >
+      <label className="flex items-start gap-2 text-[14px]" style={{ color: "var(--db-text-primary)" }}>
         <input
           type="checkbox"
           checked={checked}
           onChange={(e) => setChecked(e.target.checked)}
-          className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300"
+          className="mt-0.5 h-4 w-4 shrink-0 rounded"
+          style={{ accentColor: "var(--db-accent)", borderColor: "var(--db-border)" }}
         />
         <span>
           I have read and agree to the{" "}
-          <Link href="/legal/terms" target="_blank" rel="noreferrer" className="font-medium text-zinc-900 underline">
+          <Link href="/legal/terms" target="_blank" rel="noreferrer" className="font-medium" style={{ color: "var(--db-accent)" }}>
             Terms of Service
           </Link>{" "}
           and{" "}
@@ -49,7 +53,8 @@ export default function TermsClickwrap({ onAccepted }: { onAccepted: () => void 
             href="/legal/disclaimer"
             target="_blank"
             rel="noreferrer"
-            className="font-medium text-zinc-900 underline"
+            className="font-medium"
+            style={{ color: "var(--db-accent)" }}
           >
             Ad Spend &amp; Media Buying Disclaimer
           </Link>
@@ -57,13 +62,18 @@ export default function TermsClickwrap({ onAccepted }: { onAccepted: () => void 
         </span>
       </label>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <p className="text-[13px]" style={{ color: "var(--db-danger-text)" }}>
+          {error}
+        </p>
+      )}
 
       <button
         type="button"
         onClick={handleAccept}
         disabled={!checked || submitting}
-        className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-[var(--db-radius-pill)] px-4 py-2.5 text-[15px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+        style={{ background: "var(--db-accent)" }}
       >
         {submitting ? "Saving…" : "Agree & continue"}
       </button>
