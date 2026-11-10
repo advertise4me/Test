@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { SettingsResponse } from "@/lib/settingsTypes";
+import AdminSection from "@/components/dashboard/settings/AdminSection";
 import ProfileSection from "@/components/dashboard/settings/ProfileSection";
 import SecuritySection from "@/components/dashboard/settings/SecuritySection";
 import ConnectedAccountSection from "@/components/dashboard/settings/ConnectedAccountSection";
@@ -47,6 +48,8 @@ export default function SettingsPage() {
       <h1 className={dashboardType.screenTitle} style={{ color: "var(--db-text-primary)" }}>
         Settings
       </h1>
+
+      {data.isAdmin && <AdminSection />}
 
       <ProfileSection
         profile={data.profile}

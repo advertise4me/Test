@@ -26,6 +26,7 @@ export async function GET() {
   const businessType = (dashboardConfig?.businessType as BusinessType | undefined) ?? null;
 
   return NextResponse.json({
+    isAdmin: user.isAdmin,
     profile: {
       email: user.email,
       fullName: user.fullName,

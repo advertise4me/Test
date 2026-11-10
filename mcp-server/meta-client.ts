@@ -125,6 +125,26 @@ export async function listPages(config: Pick<MetaClientConfig, "accessToken">) {
   });
 }
 
+export interface MetaAdAccountSummary {
+  id: string;
+  name: string | null;
+  account_status: number;
+  currency: string | null;
+}
+
+/**
+ * Every ad account the given token currently has access to (e.g. the
+ * Business Manager System User token - see lib/adAccountAccess.ts), used by
+ * the admin assignment page to show which accounts exist vs. which are
+ * already assigned in AdAccountAssignment.
+ */
+export async function listAdAccountsForToken(accessToken: string) {
+  return graphGet<GraphListResult<MetaAdAccountSummary>>("/me/adaccounts", accessToken, {
+    fields: "id,name,account_status,currency",
+    limit: 200,
+  });
+}
+
 export async function getAdAccount(config: MetaClientConfig) {
   return graphGet<{
     id: string;

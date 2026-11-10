@@ -2,6 +2,9 @@
 // tab's client components - keeps the two from drifting independently.
 
 export interface SettingsResponse {
+  // True only for the one agency-owner account - see lib/admin.ts. Drives
+  // whether the Settings tab shows the "Admin" row linking to /admin.
+  isAdmin: boolean;
   profile: {
     email: string;
     fullName: string | null;
