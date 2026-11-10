@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, Link2, MessageCircleOff } from "lucide-react";
+import { AlertTriangle, MessageCircleOff } from "lucide-react";
 import type { PeriodKey } from "@/lib/period";
 import { dashboardType } from "@/lib/theme/dashboard";
 
@@ -11,27 +11,6 @@ function Card({ children }: { children: React.ReactNode }) {
     >
       {children}
     </div>
-  );
-}
-
-export function NoConnectionCard() {
-  return (
-    <Card>
-      <Link2 size={28} strokeWidth={1.75} color="var(--db-accent)" />
-      <p className={dashboardType.cardTitle} style={{ color: "var(--db-text-primary)" }}>
-        Connect your ad account
-      </p>
-      <p className="text-[14px]" style={{ color: "var(--db-text-secondary)" }}>
-        Connect your Meta ad account to see how your ads are doing.
-      </p>
-      <Link
-        href="/"
-        className="mt-1 rounded-[var(--db-radius-pill)] px-4 py-2 text-[14px] font-semibold text-white"
-        style={{ background: "var(--db-accent)" }}
-      >
-        Connect now
-      </Link>
-    </Card>
   );
 }
 
@@ -67,6 +46,11 @@ export function NoSpendCard({ period }: { period: PeriodKey }) {
   );
 }
 
+// Under the shared-token model (Phase A), a "token expired" error means the
+// one META_SYSTEM_USER_TOKEN itself is invalid - an agency-side problem the
+// admin has to fix in Meta Business Settings, not something any individual
+// client can reconnect themselves. So, unlike the old per-user flow, there's
+// no action button here.
 export function TokenExpiredBanner() {
   return (
     <div
@@ -76,19 +60,12 @@ export function TokenExpiredBanner() {
       <AlertTriangle size={20} strokeWidth={1.75} className="shrink-0" color="var(--db-danger-text)" />
       <div className="min-w-0 flex-1">
         <p className="text-[14px] font-semibold" style={{ color: "var(--db-danger-text)" }}>
-          Your connection needs to be renewed
+          We&apos;re having trouble reaching your ad account
         </p>
         <p className="text-[13px]" style={{ color: "var(--db-danger-text)" }}>
-          We lost access to your ad account. Reconnect to keep seeing your results.
+          We&apos;ve been notified and are looking into it - no action needed on your end.
         </p>
       </div>
-      <Link
-        href="/"
-        className="shrink-0 whitespace-nowrap rounded-[var(--db-radius-pill)] px-3 py-1.5 text-[13px] font-semibold"
-        style={{ background: "var(--db-danger-text)", color: "#ffffff" }}
-      >
-        Reconnect
-      </Link>
     </div>
   );
 }

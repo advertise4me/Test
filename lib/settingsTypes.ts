@@ -20,16 +20,12 @@ export interface SettingsResponse {
     targetValue: number | null;
     currency: string | null;
   } | null;
-  metaConnection:
-    | {
-        connected: true;
-        adAccountId: string;
-        accountName: string | null;
-        businessPortfolioName: string | null;
-        status: "connected" | "error";
-        lastSyncAt: string | null;
-      }
-    | { connected: false };
+  // Replaces the old per-user metaConnection field (Phase C - see
+  // AGENTS.md): which ad account a client sees is now admin-assigned
+  // (AdAccountAssignment, Phase A/B), read-only from the client's side.
+  adAccountAssignment:
+    | { assigned: true; adAccountId: string; adAccountName: string | null }
+    | { assigned: false };
   spendingControls: {
     monthlySpendCap: number | null;
   };

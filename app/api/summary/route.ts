@@ -12,7 +12,7 @@ import {
 } from "@/lib/kpiConfig";
 import { generateSummaryCopy } from "@/lib/aiCopy";
 import type { SummaryResponse } from "@/lib/summaryTypes";
-import { sendMetaAccessLostAlert, sendNeedsAttentionAlert } from "@/lib/emailTemplates";
+import { sendNeedsAttentionAlert } from "@/lib/emailTemplates";
 
 const LEARNING_STATUSES = new Set(["LEARNING", "LEARNING_LIMITED"]);
 const ALERT_THROTTLE_MS = 24 * 60 * 60 * 1000; // don't re-send either alert more than once a day
@@ -84,7 +84,6 @@ export async function GET(req: NextRequest) {
     const data = buildDashboardData(businessType, currentSummary, previousSummary, currency, dashboardConfig.targetValue, learningPhase);
     const copy = await generateSummaryCopy(data, period, learningPhase);
 
-    await markSyncOk(userId);
     // Only the default/current-week load drives the alert, so switching the
     // period selector to look at older data never triggers it.
     if (period === "this_week" && data.status.level === "attention") {
@@ -105,49 +104,17 @@ export async function GET(req: NextRequest) {
     } satisfies SummaryResponse);
   } catch (error) {
     if (isTokenError(error)) {
-      await markSyncErrorAndMaybeAlert(userId, req);
+      // Under the shared-token model (Phase A), a token error means the one
+      // META_SYSTEM_USER_TOKEN is invalid for everyone, not this user's own
+      // connection - that's an agency-side problem, not something to track
+      // or alert on per-user. (The old per-user "Meta access lost" email,
+      // keyed off a MetaConnection row, is now dead - no user can have one -
+      // and isn't wired up to the shared-token model; see the Phase C report.)
       return NextResponse.json({ state: "token_expired" } satisfies SummaryResponse);
     }
     console.error("summary error", error);
     const message = error instanceof MetaApiError ? error.message : "Something went wrong loading your summary.";
     return NextResponse.json({ state: "error", message } satisfies SummaryResponse, { status: 500 });
-  }
-}
-
-/**
- * Best-effort: records that the latest summary load succeeded against Meta -
- * drives Settings 6.3's status dot / "last sync" time. Only meaningful for
- * users who still have an old-flow MetaConnection row (updateMany is a
- * no-op, not an error, for anyone resolved through AdAccountAssignment
- * instead - see AGENTS.md Phase A).
- */
-async function markSyncOk(userId: string): Promise<void> {
-  try {
-    await prisma.metaConnection.updateMany({
-      where: { userId },
-      data: { lastSyncAt: new Date(), lastSyncStatus: "ok" },
-    });
-  } catch (error) {
-    console.error("failed to record successful sync", error);
-  }
-}
-
-/** Best-effort: records the token failure, and emails the user once (throttled) that Meta access was lost - Settings 6.5. */
-async function markSyncErrorAndMaybeAlert(userId: string, req: NextRequest): Promise<void> {
-  try {
-    const connection = await prisma.metaConnection.findUnique({ where: { userId } });
-    if (!connection) return;
-    await prisma.metaConnection.update({ where: { userId }, data: { lastSyncStatus: "error" } });
-
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, notifyMetaAccessLost: true } });
-    if (!user || !user.notifyMetaAccessLost) return;
-    if (!dueForAlert(connection.lastAccessLostAlertAt)) return;
-
-    const reconnectUrl = `${req.nextUrl.origin}/settings`;
-    await sendMetaAccessLostAlert(user.email, reconnectUrl);
-    await prisma.metaConnection.update({ where: { userId }, data: { lastAccessLostAlertAt: new Date() } });
-  } catch (error) {
-    console.error("failed to send meta-access-lost alert", error);
   }
 }
 

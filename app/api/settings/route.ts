@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/session";
 import { prisma } from "@/lib/db";
+import { getUserAdAccountAssignment } from "@/lib/adAccountAccess";
 import { BUSINESS_TYPE_LABELS, primaryKpiLabelForType, type BusinessType } from "@/lib/kpiConfig";
 import packageJson from "@/package.json";
 
@@ -13,9 +14,9 @@ export async function GET() {
     return NextResponse.json({ error: "Log in first." }, { status: 401 });
   }
 
-  const [user, metaConnection, dashboardConfig] = await Promise.all([
+  const [user, assignment, dashboardConfig] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId } }),
-    prisma.metaConnection.findUnique({ where: { userId } }),
+    getUserAdAccountAssignment(userId),
     prisma.dashboardConfig.findUnique({ where: { userId } }),
   ]);
 
@@ -44,16 +45,9 @@ export async function GET() {
           currency: dashboardConfig.currency,
         }
       : null,
-    metaConnection: metaConnection
-      ? {
-          connected: true,
-          adAccountId: metaConnection.adAccountId,
-          accountName: metaConnection.accountName,
-          businessPortfolioName: metaConnection.businessPortfolioName,
-          status: metaConnection.lastSyncStatus === "error" ? "error" : "connected",
-          lastSyncAt: metaConnection.lastSyncAt,
-        }
-      : { connected: false },
+    adAccountAssignment: assignment
+      ? { assigned: true, adAccountId: assignment.adAccountId, adAccountName: assignment.adAccountName }
+      : { assigned: false },
     spendingControls: {
       monthlySpendCap: user.monthlySpendCap,
     },

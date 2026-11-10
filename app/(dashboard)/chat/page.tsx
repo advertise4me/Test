@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Paperclip, LogOut, Send } from "lucide-react";
+import { Paperclip, Send } from "lucide-react";
 import { parseAssistantContent } from "@/lib/parseAssistantContent";
 import { AUTO_SUMMARY_PROMPT } from "@/lib/autoSummary";
 import { dashboardIconStrokeWidth, dashboardType } from "@/lib/theme/dashboard";
@@ -10,6 +10,7 @@ import StepsWidget from "@/components/StepsWidget";
 import AssistantMarkdown from "@/components/AssistantMarkdown";
 import LoadingIndicator from "@/components/LoadingIndicator";
 import ConfirmActionCard, { type ActionResolution } from "@/components/ConfirmActionCard";
+import NoAccountAssignedCard from "@/components/dashboard/NoAccountAssignedCard";
 
 interface ChatTurn {
   role: "user" | "assistant";
@@ -17,10 +18,10 @@ interface ChatTurn {
 }
 
 interface SessionStatus {
-  connected: boolean;
+  loggedIn: boolean;
+  assigned: boolean;
   adAccountId?: string;
   accountName?: string;
-  currency?: string;
 }
 
 export default function ChatPage() {
@@ -56,10 +57,13 @@ function ChatPageInner() {
     fetch("/api/session")
       .then((res) => res.json())
       .then((data: SessionStatus) => {
+        if (!data.loggedIn) {
+          router.replace("/login");
+          return;
+        }
         setStatus(data);
-        if (!data.connected) router.replace("/");
       })
-      .catch(() => router.replace("/"));
+      .catch(() => router.replace("/login"));
   }, [router]);
 
   // Strips the ?prefill= param from the URL once it's been read into
@@ -72,7 +76,7 @@ function ChatPageInner() {
   // empty conversation loads - the user shouldn't have to type or click
   // anything to get it. Only ever fires once per page load.
   useEffect(() => {
-    if (!status?.connected || history.length > 0 || autoOpeningTriggeredRef.current) return;
+    if (!status?.assigned || history.length > 0 || autoOpeningTriggeredRef.current) return;
     autoOpeningTriggeredRef.current = true;
     setAutoOpeningSent(true);
     sendMessage(AUTO_SUMMARY_PROMPT);
@@ -154,11 +158,6 @@ function ChatPageInner() {
     }
   }
 
-  async function handleDisconnect() {
-    await fetch("/api/disconnect", { method: "POST" });
-    router.replace("/");
-  }
-
   function handleActionResolved(id: string, resolution: ActionResolution) {
     setActionResolutions((prev) => ({ ...prev, [id]: resolution }));
   }
@@ -172,6 +171,16 @@ function ChatPageInner() {
   const hasUnresolvedAction = (lastConfirmActions ?? []).some((a) => !actionResolutions[a.id]);
   const inputDisabled = sending || uploading || hasUnresolvedAction;
 
+  if (status === null) return null;
+
+  if (!status.assigned) {
+    return (
+      <main className="flex min-h-full flex-1 items-center justify-center px-[var(--db-gutter)] py-16">
+        <NoAccountAssignedCard />
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col">
       <header
@@ -182,24 +191,10 @@ function ChatPageInner() {
           <h1 className={dashboardType.cardTitle} style={{ color: "var(--db-text-primary)" }}>
             Recommendations
           </h1>
-          {status?.connected && (
-            <p className="text-[12px]" style={{ color: "var(--db-text-secondary)" }}>
-              {status.accountName ?? status.adAccountId}
-              {status.currency ? ` · ${status.currency}` : ""}
-            </p>
-          )}
+          <p className="text-[12px]" style={{ color: "var(--db-text-secondary)" }}>
+            {status.accountName ?? status.adAccountId}
+          </p>
         </div>
-        <button
-          onClick={handleDisconnect}
-          className="flex items-center gap-1.5 rounded-[var(--db-radius-pill)] px-3 py-1.5 text-xs font-medium"
-          style={{
-            border: "var(--db-border-width) solid var(--db-border)",
-            color: "var(--db-text-secondary)",
-          }}
-        >
-          <LogOut size={14} strokeWidth={dashboardIconStrokeWidth} />
-          Disconnect
-        </button>
       </header>
 
       <div className="flex-1 space-y-4 px-[var(--db-gutter)] py-4">

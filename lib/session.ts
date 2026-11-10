@@ -2,10 +2,11 @@ import "server-only";
 import { cookies } from "next/headers";
 import { getIronSession, type IronSession } from "iron-session";
 
-// The cookie now only identifies the logged-in user - it no longer carries
-// the Meta access token. That token lives encrypted in the MetaConnection
-// table (see lib/crypto.ts / prisma/schema.prisma) and is looked up by
-// userId on each request that needs it.
+// The cookie only ever identifies the logged-in user. There is no per-user
+// Meta access token to carry any more (Phase A/C - see AGENTS.md): every
+// Meta API call uses the single shared META_SYSTEM_USER_TOKEN, and which ad
+// account a user may see is looked up by userId from AdAccountAssignment
+// (see lib/adAccountAccess.ts).
 export interface AdsChatSessionData {
   userId?: string;
 }

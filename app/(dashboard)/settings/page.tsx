@@ -57,7 +57,7 @@ export default function SettingsPage() {
         businessTypeOptions={data.businessTypeOptions}
       />
       <SecuritySection email={data.profile.email} />
-      <ConnectedAccountSection metaConnection={data.metaConnection} />
+      <ConnectedAccountSection adAccountAssignment={data.adAccountAssignment} />
       <SpendingControlsSection monthlySpendCap={data.spendingControls.monthlySpendCap} />
       <NotificationsSection notifications={data.notifications} />
       <BillingSection />

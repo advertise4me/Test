@@ -14,7 +14,8 @@ import FunnelCard from "@/components/dashboard/summary/FunnelCard";
 import NextStepsCard from "@/components/dashboard/summary/NextStepsCard";
 import SummarySkeleton from "@/components/dashboard/summary/SummarySkeleton";
 import PullToRefresh from "@/components/dashboard/summary/PullToRefresh";
-import { NoConnectionCard, NoSpendCard, TokenExpiredBanner, LoadErrorCard, LearningPhaseNote } from "@/components/dashboard/summary/EmptyStates";
+import { NoSpendCard, TokenExpiredBanner, LoadErrorCard, LearningPhaseNote } from "@/components/dashboard/summary/EmptyStates";
+import NoAccountAssignedCard from "@/components/dashboard/NoAccountAssignedCard";
 
 export default function AiSummaryPage() {
   const router = useRouter();
@@ -79,7 +80,7 @@ export default function AiSummaryPage() {
 
         {loading && <SummarySkeleton />}
 
-        {!loading && data?.state === "no_connection" && <NoConnectionCard />}
+        {!loading && data?.state === "no_account_assigned" && <NoAccountAssignedCard />}
         {!loading && data?.state === "no_spend" && <NoSpendCard period={data.period} />}
         {!loading && data?.state === "token_expired" && <TokenExpiredBanner />}
         {!loading && data?.state === "error" && <LoadErrorCard message={data.message} />}

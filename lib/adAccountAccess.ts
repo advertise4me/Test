@@ -25,24 +25,26 @@ export function getMetaSystemUserToken(): string {
   return token;
 }
 
-export interface ResolvedAdAccount {
+export interface AdAccountAssignmentInfo {
   /** Normalized to the "act_..." form the Graph API expects. */
   adAccountId: string;
   adAccountName: string | null;
-  accessToken: string;
+  assignedAt: Date;
 }
 
 /**
- * Resolves the Meta ad account a logged-in user is allowed to use, from
- * AdAccountAssignment - the only source of truth for "which account does
- * this user see." Returns null if nothing is assigned yet, so callers can
- * surface a clear "no ad account assigned" state instead of erroring.
+ * Looks up which ad account (if any) the admin has assigned to this user,
+ * from AdAccountAssignment - the only source of truth for "which account
+ * does this user see." Returns null if nothing is assigned yet. Unlike
+ * resolveUserAdAccount below, this never touches META_SYSTEM_USER_TOKEN, so
+ * callers that only need to display the assignment (Settings, the session
+ * status check) don't fail just because the token isn't configured yet.
  *
  * Known simplification (Phase A): a user can hold multiple assignments, but
  * this picks only the most-recently-assigned one. A proper account-switcher
  * UI for multi-account users is left to a later phase.
  */
-export async function resolveUserAdAccount(userId: string): Promise<ResolvedAdAccount | null> {
+export async function getUserAdAccountAssignment(userId: string): Promise<AdAccountAssignmentInfo | null> {
   const assignment = await prisma.adAccountAssignment.findFirst({
     where: { userId },
     orderBy: { assignedAt: "desc" },
@@ -51,6 +53,29 @@ export async function resolveUserAdAccount(userId: string): Promise<ResolvedAdAc
 
   return {
     adAccountId: normalizeAdAccountId(assignment.adAccountId),
+    adAccountName: assignment.adAccountName,
+    assignedAt: assignment.assignedAt,
+  };
+}
+
+export interface ResolvedAdAccount {
+  adAccountId: string;
+  adAccountName: string | null;
+  accessToken: string;
+}
+
+/**
+ * Resolves the Meta ad account a logged-in user is allowed to use, and the
+ * token to call it with. Returns null if nothing is assigned yet, so
+ * callers can surface a clear "no ad account assigned" state instead of
+ * erroring.
+ */
+export async function resolveUserAdAccount(userId: string): Promise<ResolvedAdAccount | null> {
+  const assignment = await getUserAdAccountAssignment(userId);
+  if (!assignment) return null;
+
+  return {
+    adAccountId: assignment.adAccountId,
     adAccountName: assignment.adAccountName,
     accessToken: getMetaSystemUserToken(),
   };
