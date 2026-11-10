@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { decryptToken } from "@/lib/crypto";
+import { resolveUserAdAccount } from "@/lib/adAccountAccess";
 import { startMetaAdsMcpSession } from "@/lib/mcp-client";
 import { consumePendingAction, discardPendingAction, getPendingAction } from "@/lib/pendingActions";
 import { WRITE_TOOL_NAMES, enforceExecutionInvariants, type SpendDetails } from "@/lib/metaWriteGate";
@@ -114,18 +114,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 
-  const connection = await prisma.metaConnection.findUnique({ where: { userId } });
-  if (!connection) {
-    return NextResponse.json({ error: "No Meta ad account is connected. Connect one first." }, { status: 401 });
+  let account: Awaited<ReturnType<typeof resolveUserAdAccount>>;
+  try {
+    account = await resolveUserAdAccount(userId);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
-  const metaAccessToken = decryptToken(connection.accessTokenCiphertext);
+  if (!account) {
+    return NextResponse.json(
+      { error: "No ad account has been assigned to you yet. Ask the agency to assign one to your login." },
+      { status: 403 },
+    );
+  }
 
   let mcpSession: Awaited<ReturnType<typeof startMetaAdsMcpSession>>;
   try {
     mcpSession = await startMetaAdsMcpSession({
-      accessToken: metaAccessToken,
-      adAccountId: connection.adAccountId,
-      pageId: connection.facebookPageId,
+      accessToken: account.accessToken,
+      adAccountId: account.adAccountId,
+      // See the matching note in app/api/chat/route.ts - Page resolution
+      // isn't wired up yet under the shared-token model.
+      pageId: undefined,
     });
   } catch (error) {
     return NextResponse.json(

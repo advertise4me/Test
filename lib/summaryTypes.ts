@@ -6,6 +6,10 @@ import type { NextStep } from "@/lib/aiCopy";
 
 export type SummaryResponse =
   | { state: "no_connection" }
+  // No AdAccountAssignment row for this user yet (Phase A shared-token
+  // model) - distinct from "no_connection" (the old per-user connect flow),
+  // which is now orphaned. See AGENTS.md / the Phase A report.
+  | { state: "no_account_assigned" }
   | { state: "no_spend"; period: PeriodKey }
   | { state: "token_expired" }
   | { state: "error"; message: string }

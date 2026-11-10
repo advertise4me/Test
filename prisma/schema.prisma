@@ -15,6 +15,17 @@ model User {
   metaConnection  MetaConnection?
   dashboardConfig DashboardConfig?
 
+  // True only for admin@advertise4me.com (the agency owner) - see
+  // lib/admin.ts's ensureAdminFlag(), which sets this idempotently at
+  // login/signup. Grants access to assigning shared ad accounts to clients
+  // (Phase A of the Business-Manager-system-user-token migration).
+  isAdmin Boolean @default(false)
+
+  // Shared Meta ad account(s) the agency owner has assigned to this user -
+  // see AdAccountAssignment below. A user can have more than one; see
+  // lib/adAccountAccess.ts for how the app currently picks which one to use.
+  adAccountAssignments AdAccountAssignment[]
+
   // --- Settings (Phase 5a) --------------------------------------------
   fullName        String?
   businessName    String?
@@ -66,6 +77,30 @@ model PasswordResetToken {
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// A Meta ad account (shared with advertise4me's Business Portfolio by the
+// client, outside this app) manually assigned by the admin to exactly one
+// user at a time - adAccountId is UNIQUE, so no two users can ever be
+// handed the same ad account. userId null means the account is visible to
+// the Business Manager system user token but not yet assigned to anyone.
+// One user can hold multiple assignments (one-to-many from User). There is
+// no per-account access token here - every Meta API call for every user
+// uses the single process.env.META_SYSTEM_USER_TOKEN (see
+// lib/adAccountAccess.ts). This is the Phase A replacement for the old
+// per-user MetaConnection flow below, which is left in place but orphaned.
+model AdAccountAssignment {
+  id            String    @id @default(cuid())
+  adAccountId   String    @unique
+  adAccountName String?
+  userId        String?
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  assignedAt    DateTime  @default(now())
+  // The admin user's id who made this assignment. Not a foreign key - purely
+  // an audit field, same convention as WriteActionLog.userId below.
+  assignedBy    String?
 
   @@index([userId])
 }

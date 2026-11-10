@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { decryptToken } from "@/lib/crypto";
-import { MetaApiError, getInsights, listAdSets, listCampaigns, normalizeAdAccountId } from "@/mcp-server/meta-client";
+import { resolveUserAdAccount } from "@/lib/adAccountAccess";
+import { MetaApiError, getInsights, listAdSets, listCampaigns } from "@/mcp-server/meta-client";
 import { getDetectionRange, getPeriodRange, isPeriodKey, type PeriodKey } from "@/lib/period";
 import {
   aggregateInsights,
@@ -34,13 +34,26 @@ export async function GET(req: NextRequest) {
   const periodParam = req.nextUrl.searchParams.get("period");
   const period: PeriodKey = isPeriodKey(periodParam) ? periodParam : "this_week";
 
-  const connection = await prisma.metaConnection.findUnique({ where: { userId } });
-  if (!connection) {
-    return NextResponse.json({ state: "no_connection" } satisfies SummaryResponse);
+  let account: Awaited<ReturnType<typeof resolveUserAdAccount>>;
+  try {
+    account = await resolveUserAdAccount(userId);
+  } catch (error) {
+    console.error("summary: could not resolve Meta system user token", error);
+    return NextResponse.json(
+      { state: "error", message: (error as Error).message } satisfies SummaryResponse,
+      { status: 500 },
+    );
+  }
+  if (!account) {
+    return NextResponse.json({ state: "no_account_assigned" } satisfies SummaryResponse);
   }
 
-  const config = { accessToken: decryptToken(connection.accessTokenCiphertext), adAccountId: normalizeAdAccountId(connection.adAccountId) };
-  const currency = connection.currency ?? "USD";
+  const config = { accessToken: account.accessToken, adAccountId: account.adAccountId };
+  // AdAccountAssignment doesn't cache a currency (only adAccountId/Name - see
+  // AGENTS.md Phase A) - default to USD. DashboardConfig still caches
+  // whatever currency was in play the first time it was detected, same as
+  // before.
+  const currency = "USD";
 
   try {
     const dashboardConfig = (await prisma.dashboardConfig.findUnique({ where: { userId } })) ?? (await detectAndPersist(userId, config, currency));
@@ -101,10 +114,16 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** Best-effort: records that the latest summary load succeeded against Meta - drives Settings 6.3's status dot / "last sync" time. */
+/**
+ * Best-effort: records that the latest summary load succeeded against Meta -
+ * drives Settings 6.3's status dot / "last sync" time. Only meaningful for
+ * users who still have an old-flow MetaConnection row (updateMany is a
+ * no-op, not an error, for anyone resolved through AdAccountAssignment
+ * instead - see AGENTS.md Phase A).
+ */
 async function markSyncOk(userId: string): Promise<void> {
   try {
-    await prisma.metaConnection.update({
+    await prisma.metaConnection.updateMany({
       where: { userId },
       data: { lastSyncAt: new Date(), lastSyncStatus: "ok" },
     });

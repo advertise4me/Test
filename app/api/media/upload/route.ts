@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/session";
-import { prisma } from "@/lib/db";
-import { decryptToken } from "@/lib/crypto";
+import { resolveUserAdAccount } from "@/lib/adAccountAccess";
 import { MetaApiError, uploadAdImage, uploadAdVideo } from "@/mcp-server/meta-client";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10MB, Meta's own adimages limit
@@ -18,9 +17,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Log in first." }, { status: 401 });
   }
 
-  const connection = await prisma.metaConnection.findUnique({ where: { userId } });
-  if (!connection) {
-    return NextResponse.json({ error: "Connect a Meta ad account first." }, { status: 401 });
+  let account: Awaited<ReturnType<typeof resolveUserAdAccount>>;
+  try {
+    account = await resolveUserAdAccount(userId);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+  }
+  if (!account) {
+    return NextResponse.json(
+      { error: "No ad account has been assigned to you yet. Ask the agency to assign one to your login." },
+      { status: 403 },
+    );
   }
 
   let formData: FormData;
@@ -49,8 +56,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const metaAccessToken = decryptToken(connection.accessTokenCiphertext);
-  const config = { accessToken: metaAccessToken, adAccountId: connection.adAccountId };
+  const config = { accessToken: account.accessToken, adAccountId: account.adAccountId };
   const uploadedFile = {
     filename: file.name || (isImage ? "upload.jpg" : "upload.mp4"),
     mimeType: file.type,

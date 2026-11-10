@@ -1,6 +1,7 @@
 import "server-only";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { ensureAdminFlag } from "@/lib/admin";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -19,7 +20,9 @@ export async function signUp(email: string, password: string) {
   if (existing) throw new AuthError("An account with that email already exists.");
 
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-  return prisma.user.create({ data: { email: normalized, passwordHash } });
+  const user = await prisma.user.create({ data: { email: normalized, passwordHash } });
+  await ensureAdminFlag(user.id, user.email);
+  return user;
 }
 
 export async function logIn(email: string, password: string) {
@@ -30,5 +33,9 @@ export async function logIn(email: string, password: string) {
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) throw new AuthError("Incorrect email or password.");
 
+  // Idempotent - also self-heals isAdmin if this is the one agency-owner
+  // email and the flag was never set (e.g. the account existed before this
+  // field was added).
+  await ensureAdminFlag(user.id, user.email);
   return user;
 }

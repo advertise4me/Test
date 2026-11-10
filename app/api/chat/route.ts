@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getCurrentUserId } from "@/lib/session";
-import { prisma } from "@/lib/db";
-import { decryptToken } from "@/lib/crypto";
+import { resolveUserAdAccount } from "@/lib/adAccountAccess";
 import { startMetaAdsMcpSession } from "@/lib/mcp-client";
 import { AUTO_SUMMARY_PROMPT } from "@/lib/autoSummary";
 import { isWriteTool, prepareWriteAction, type SpendDetails } from "@/lib/metaWriteGate";
@@ -123,14 +122,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Log in first." }, { status: 401 });
   }
 
-  const connection = await prisma.metaConnection.findUnique({ where: { userId } });
-  if (!connection) {
+  let account: Awaited<ReturnType<typeof resolveUserAdAccount>>;
+  try {
+    account = await resolveUserAdAccount(userId);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+  }
+  if (!account) {
     return NextResponse.json(
-      { error: "No Meta ad account is connected. Connect one first." },
-      { status: 401 },
+      { error: "No ad account has been assigned to you yet. Ask the agency to assign one to your login." },
+      { status: 403 },
     );
   }
-  const metaAccessToken = decryptToken(connection.accessTokenCiphertext);
 
   let body: unknown;
   try {
@@ -164,9 +167,13 @@ export async function POST(req: NextRequest) {
   let mcpSession: Awaited<ReturnType<typeof startMetaAdsMcpSession>>;
   try {
     mcpSession = await startMetaAdsMcpSession({
-      accessToken: metaAccessToken,
-      adAccountId: connection.adAccountId,
-      pageId: connection.facebookPageId,
+      accessToken: account.accessToken,
+      adAccountId: account.adAccountId,
+      // Not resolved yet under the shared-token model (AdAccountAssignment
+      // doesn't carry a Facebook Page) - create_ad_creative will report "no
+      // Page linked" until a later phase adds Page resolution. Known
+      // simplification, see the Phase A report.
+      pageId: undefined,
     });
   } catch (error) {
     return NextResponse.json(
@@ -216,7 +223,7 @@ export async function POST(req: NextRequest) {
           // explicitly confirms it in the UI. Read tools (list/get) are
           // unaffected and still execute immediately below.
           if (isWriteTool(block.name)) {
-            const prepared = prepareWriteAction(block.name, input, connection.currency ?? undefined);
+            const prepared = prepareWriteAction(block.name, input, undefined);
             if (!prepared.ok) {
               toolResults.push({
                 type: "tool_result",
